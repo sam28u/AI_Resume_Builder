@@ -47,15 +47,15 @@ export const profiles = pgTable("profiles", {
   portfolioUrl: text("portfolio_url"),
 });
 
-// export const experiences = pgTable("experiences", {
-//   id: uuid("id").primaryKey().defaultRandom(),
-//   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-//   company: text("company").notNull(),
-//   title: text("title").notNull(),
-//   startDate: timestamp("start_date").notNull(),
-//   endDate: timestamp("end_date"), // null = present
-//   descriptionBullets: jsonb("description_bullets").default([]).notNull(), // Array of strings
-// });
+export const experiences = pgTable("experiences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  company: text("company").notNull(),
+  title: text("title").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // null = present
+  descriptionBullets: jsonb("description_bullets").default([]).notNull(), // Array of strings
+});
 
 // export const educations = pgTable("educations", {
 //   id: uuid("id").primaryKey().defaultRandom(),

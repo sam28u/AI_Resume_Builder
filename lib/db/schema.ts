@@ -67,22 +67,30 @@ export const educations = pgTable("educations", {
   endDate: timestamp("end_date"),
 });
 
-// export const skills = pgTable("skills", {
-//   id: uuid("id").primaryKey().defaultRandom(),
-//   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-//   category: text("category").notNull(), // e.g., "Languages", "Frameworks"
-//   items: jsonb("items").default([]).notNull(), // e.g., ["React", "Next.js", "Node"]
-// });
+export const skills = pgTable("skills", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  category: text("category").notNull(),
+  items: jsonb("items").$type<{
+    name: string;
+    proficiency?: "beginner" | "intermediate" | "advanced" | "expert";
+    yearsOfExperience?: number;
+  }[]>().default([]).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
-// export const projects = pgTable("projects", {
-//   id: uuid("id").primaryKey().defaultRandom(),
-//   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-//   name: text("name").notNull(),
-//   description: text("description").notNull(),
-//   technologies: jsonb("technologies").default([]).notNull(),
-//   link: text("link"),
-//   githubLink: text("github_link"),
-// });
+export const projects = pgTable("projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  technologies: jsonb("technologies").default([]).notNull(),
+  link: text("link"),
+  githubLink: text("github_link"),
+});
 
 // // ==========================================
 // // 4. AI GENERATED RESUMES (THE OUTPUT)

@@ -92,38 +92,69 @@ export const projects = pgTable("projects", {
   githubLink: text("github_link"),
 });
 
-// // ==========================================
-// // 4. AI GENERATED RESUMES (THE OUTPUT)
-// // ==========================================
-// export const resumes = pgTable("resumes", {
-//   id: uuid("id").primaryKey().defaultRandom(),
-//   userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-//   jobDescription: text("job_description").notNull(),
-//   generatedContent: jsonb("generated_content").notNull(), // The strict JSON payload from the LLM
-//   createdAt: timestamp("created_at").defaultNow().notNull(),
-// });
+// ==========================================
+// 4. AI GENERATED RESUMES (THE OUTPUT)
+// ==========================================
+export const resumes = pgTable("resumes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  jobDescription: text("job_description").notNull(),
+  generatedContent: jsonb("generated_content").notNull(), // The strict JSON payload from the LLM
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
-// // ==========================================
-// // 5. DRIZZLE RELATIONS (For easy querying)
-// // ==========================================
+// ==========================================
+// 5. DRIZZLE RELATIONS (For easy querying)
+// ==========================================
 
-// export const usersRelations = relations(users, ({ one, many }) => ({
-//   profile: one(profiles, {
-//     fields: [users.id],
-//     references: [profiles.userId],
-//   }),
-//   refreshTokens: many(refreshTokens),
-//   experiences: many(experiences),
-//   educations: many(educations),
-//   skills: many(skills),
-//   projects: many(projects),
-//   resumes: many(resumes),
-// }));
+export const usersRelations = relations(users, ({ one, many }) => ({
+  profile: one(profiles, {
+    fields: [users.id],
+    references: [profiles.userId],
+  }),
+  refreshTokens: many(refreshTokens),
+  experiences: many(experiences),
+  educations: many(educations),
+  skills: many(skills),
+  projects: many(projects),
+  resumes: many(resumes),
+}));
 
-// // Example of a reverse relation for experiences back to the user
-// export const experiencesRelations = relations(experiences, ({ one }) => ({
-//   user: one(users, {
-//     fields: [experiences.userId],
-//     references: [users.id],
-//   }),
-// }));
+// Example of a reverse relation for experiences back to the user
+export const experiencesRelations = relations(experiences, ({ one }) => ({
+  user: one(users, {
+    fields: [experiences.userId],
+    references: [users.id],
+  }),
+}));
+
+export const educationsRelations = relations(educations, ({ one }) => ({
+  user: one(users, {
+    fields: [educations.userId], // Make sure this matches the FK column name in your educations table
+    references: [users.id],
+  }),
+}));
+
+// 3. Add Reverse Relation for Skills
+export const skillsRelations = relations(skills, ({ one }) => ({
+  user: one(users, {
+    fields: [skills.userId], // Make sure this matches the FK column name in your skills table
+    references: [users.id],
+  }),
+}));
+
+// 4. Add Reverse Relation for Projects (If you haven't already)
+export const projectsRelations = relations(projects, ({ one }) => ({
+  user: one(users, {
+    fields: [projects.userId],
+    references: [users.id],
+  }),
+}));
+
+// 5. Add Reverse Relation for Resumes
+export const resumesRelations = relations(resumes, ({ one }) => ({
+  user: one(users, {
+    fields: [resumes.userId],
+    references: [users.id],
+  }),
+}));

@@ -1,69 +1,100 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate } from "@/lib/auth/authenticate";
+import { generateText, Output } from "ai";
+import { google } from "@ai-sdk/google";
+import { z } from "zod";
 
-// I've commented these out so you don't get "unused variable" warnings today, 
-// but you can easily uncomment them tomorrow when your quota resets.
-// import { generateText, Output } from "ai";
-// import { google } from "@ai-sdk/google";
-// import { z } from "zod";
+const resumeSchema = z.object({
+  professionalSummary: z.string().describe("A strong, ATS-friendly summary paragraph."),
+  tailoredExperiences: z.array(
+    z.object({
+      company: z.string(),
+      title: z.string(),
+      optimizedBullets: z.array(z.string()).describe("Action-oriented bullets incorporating JD keywords."),
+    })
+  ),
+  relevantSkills: z.array(z.string()).describe("List of technical skills matching the JD."),
+});
 
 export async function POST(req: Request) {
   try {
-    // 1. Authenticate the incoming request
     const payload = await authenticate(req);
-    
-    // 2. Parse the job description from Postman / the frontend
     const { jobDescription } = await req.json();
 
     if (!jobDescription) {
       return NextResponse.json({ error: "Job description is required" }, { status: 400 });
     }
 
-    // 3. Verify the database connection and fetch the user
+    // 1. Drizzle Optimization: Fetch only relations, exclude heavy base user columns (passwords, dates)
     const rawUserData = await db.query.users.findFirst({
       where: (users, { eq }) => eq(users.id, payload.userId as string),
-      with: { profile: true, experiences: true, educations: true, skills: true },
+      columns: { id: true }, // We only need the ID from the root table
+      with: { 
+        profile: true, 
+        experiences: true, 
+        educations: true, 
+        skills: true 
+      },
     });
 
     if (!rawUserData) {
       return NextResponse.json({ error: "User data not found" }, { status: 404 });
     }
 
-    console.log("⚠️ Bypassing Google API (Daily Limit Hit) -> Serving Mock Data");
+    // 2. Token Optimization: Convert JSON into dense, flat Markdown text
+    let optimizedDataString = `USER PROFILE:\n`;
     
-    // 4. Simulate a 2-second API delay so you can build frontend loading spinners
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (rawUserData.profile) {
+      optimizedDataString += `Name: ${rawUserData.profile.firstName || ""} ${rawUserData.profile.lastName || ""}\n`;
+    }
 
-    // 5. Perfect mock data matching the exact schema you defined earlier
-    const mockResume = {
-      professionalSummary: "Results-oriented Full Stack Software Engineer with expertise in Next.js, React, and PostgreSQL. Proven ability to architect custom solutions from scratch, optimize complex database queries with Drizzle ORM, and build highly performant, low-bandwidth applications.",
-      tailoredExperiences: [
-        {
-          company: "IIIT Bhubaneswar Projects",
-          title: "Full Stack Developer (Next.js & Node.js)",
-          optimizedBullets: [
-            "Architected and developed IMS.proc, a high-performance inventory tracking application using Next.js and PostgreSQL.",
-            "Built Gram Vani from scratch, designing context-aware systems optimized for low-bandwidth environments without relying on pre-built managed services.",
-            "Designed complex database relations using Drizzle ORM, ensuring fast and scalable data retrieval."
-          ]
-        }
-      ],
-      relevantSkills: [
-        "Next.js (App Router)",
-        "TypeScript",
-        "React",
-        "PostgreSQL",
-        "Drizzle ORM",
-        "Node.js/Fastify",
-        "Linux System Architecture"
-      ]
-    };
+    if (rawUserData.experiences && rawUserData.experiences.length > 0) {
+      optimizedDataString += `\nEXPERIENCE:\n`;
+      rawUserData.experiences.forEach(exp => {
+        // Flattens bullets into a single line to save tokens on line breaks/array brackets
+        const desc = (exp as any).descriptionBullets;
+        const bullets =
+          Array.isArray(desc) ? desc.join(" ") :
+          typeof desc === "string" ? desc :
+          "";
+        optimizedDataString += `- ${exp.title} at ${exp.company}: ${bullets}\n`;
+      });
+    }
 
-    console.log("✅ Successfully served mock resume");
+    if (rawUserData.educations && rawUserData.educations.length > 0) {
+      optimizedDataString += `\nEDUCATION:\n`;
+      rawUserData.educations.forEach(edu => {
+        optimizedDataString += `- ${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution}\n`;
+      });
+    }
+
+    if (rawUserData.skills && rawUserData.skills.length > 0) {
+      // Flatten all skill items into a single comma-separated string
+      const allSkills = rawUserData.skills.flatMap(skill => skill.items).filter(Boolean).join(", ");
+      optimizedDataString += `\nSKILLS: ${allSkills}\n`;
+    }
+
+    const systemPrompt = `You are an expert ATS resume writer. Tailor the user's experience to the Job Description. Return valid JSON only.`;
     
-    // 6. Return the response exactly as the real AI route would
-    return NextResponse.json({ success: true, resume: mockResume }, { status: 200 });
+    // 3. Truncate the Job Description to ~3000 characters (roughly 500-600 words)
+    // This prevents massive copy-paste inputs from blowing up your token limit
+    const safeJobDescription = jobDescription.substring(0, 3000);
+
+    const userPrompt = `${optimizedDataString}\n\nJOB DESCRIPTION:\n${safeJobDescription}`;
+
+    console.log("🤖 Attempting generation with optimized token payload...");
+    
+    const response = await generateText({
+      model: google("gemini-2.0-flash"),
+      output: Output.object({ schema: resumeSchema }),
+      system: systemPrompt,
+      prompt: userPrompt,
+    });
+
+    console.log("✅ Successfully generated with Gemini");
+
+    return NextResponse.json({ success: true, resume: response.output }, { status: 200 });
 
   } catch (error) {
     console.error("🔥 CRITICAL GENERATION ERROR:", error);

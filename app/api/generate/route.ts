@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate } from "@/lib/auth/authenticate";
-import { generateText, Output } from "ai";
-import { google } from "@ai-sdk/google";
+import { generateText } from "ai"; // 👈 Switched back to generateText
 import { z } from "zod";
+import { createGroq } from "@ai-sdk/groq";
 
+// You can keep the Zod schema for server-side validation if you want, 
+// but we won't pass it directly to the AI SDK.
 const resumeSchema = z.object({
-  professionalSummary: z.string().describe("A strong, ATS-friendly summary paragraph."),
+  professionalSummary: z.string(),
   tailoredExperiences: z.array(
     z.object({
       company: z.string(),
       title: z.string(),
-      optimizedBullets: z.array(z.string()).describe("Action-oriented bullets incorporating JD keywords."),
-    })
+      optimizedBullets: z.array(z.string()),
+    }),
   ),
-  relevantSkills: z.array(z.string()).describe("List of technical skills matching the JD."),
+  relevantSkills: z.array(z.string()),
 });
 
 export async function POST(req: Request) {
@@ -23,81 +25,80 @@ export async function POST(req: Request) {
     const { jobDescription } = await req.json();
 
     if (!jobDescription) {
-      return NextResponse.json({ error: "Job description is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Job description is required" },
+        { status: 400 },
+      );
     }
 
-    // 1. Drizzle Optimization: Fetch only relations, exclude heavy base user columns (passwords, dates)
     const rawUserData = await db.query.users.findFirst({
       where: (users, { eq }) => eq(users.id, payload.userId as string),
-      columns: { id: true }, // We only need the ID from the root table
-      with: { 
-        profile: true, 
-        experiences: true, 
-        educations: true, 
-        skills: true 
+      columns: { id: true },
+      with: {
+        profile: true,
+        experiences: true,
+        educations: true,
+        skills: true,
       },
     });
 
     if (!rawUserData) {
-      return NextResponse.json({ error: "User data not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "User data not found" },
+        { status: 404 },
+      );
     }
 
-    // 2. Token Optimization: Convert JSON into dense, flat Markdown text
     let optimizedDataString = `USER PROFILE:\n`;
-    
-    if (rawUserData.profile) {
-      optimizedDataString += `Name: ${rawUserData.profile.firstName || ""} ${rawUserData.profile.lastName || ""}\n`;
-    }
+    // ... [Keep your existing flattening logic here] ...
 
-    if (rawUserData.experiences && rawUserData.experiences.length > 0) {
-      optimizedDataString += `\nEXPERIENCE:\n`;
-      rawUserData.experiences.forEach(exp => {
-        // Flattens bullets into a single line to save tokens on line breaks/array brackets
-        const desc = (exp as any).descriptionBullets;
-        const bullets =
-          Array.isArray(desc) ? desc.join(" ") :
-          typeof desc === "string" ? desc :
-          "";
-        optimizedDataString += `- ${exp.title} at ${exp.company}: ${bullets}\n`;
-      });
-    }
-
-    if (rawUserData.educations && rawUserData.educations.length > 0) {
-      optimizedDataString += `\nEDUCATION:\n`;
-      rawUserData.educations.forEach(edu => {
-        optimizedDataString += `- ${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution}\n`;
-      });
-    }
-
-    if (rawUserData.skills && rawUserData.skills.length > 0) {
-      // Flatten all skill items into a single comma-separated string
-      const allSkills = rawUserData.skills.flatMap(skill => skill.items).filter(Boolean).join(", ");
-      optimizedDataString += `\nSKILLS: ${allSkills}\n`;
-    }
-
-    const systemPrompt = `You are an expert ATS resume writer. Tailor the user's experience to the Job Description. Return valid JSON only.`;
-    
-    // 3. Truncate the Job Description to ~3000 characters (roughly 500-600 words)
-    // This prevents massive copy-paste inputs from blowing up your token limit
     const safeJobDescription = jobDescription.substring(0, 3000);
-
     const userPrompt = `${optimizedDataString}\n\nJOB DESCRIPTION:\n${safeJobDescription}`;
 
-    console.log("🤖 Attempting generation with optimized token payload...");
-    
+    // 👈 1. Update the system prompt to explicitly define the expected JSON structure
+    const systemPrompt = `You are an expert ATS resume writer. Tailor the user's experience to the Job Description. 
+You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap it in markdown blocks or add any conversational text:
+{
+  "professionalSummary": "A strong, ATS-friendly summary paragraph.",
+  "tailoredExperiences": [
+    {
+      "company": "Company Name",
+      "title": "Job Title",
+      "optimizedBullets": ["Action-oriented bullet 1", "Action-oriented bullet 2"]
+    }
+  ],
+  "relevantSkills": ["Skill 1", "Skill 2"]
+}`;
+
+    const groq = createGroq({
+      apiKey: process.env.GROQ_API_KEY!,
+    });
+
+    console.log("🤖 Attempting generation with Groq...");
+
+    // 👈 2. Use generateText instead of generateObject
     const response = await generateText({
-      model: google("gemini-2.0-flash"),
-      output: Output.object({ schema: resumeSchema }),
+      model: groq("llama-3.3-70b-versatile"),
       system: systemPrompt,
       prompt: userPrompt,
     });
 
-    console.log("✅ Successfully generated with Gemini");
+    console.log("✅ Successfully generated text with Groq");
 
-    return NextResponse.json({ success: true, resume: response.output }, { status: 200 });
+    // 👈 3. Clean and parse the response
+    // (This strips out any stray markdown formatting like ```json that the LLM might hallucinate)
+    const rawJsonString = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsedResume = JSON.parse(rawJsonString);
 
+    return NextResponse.json(
+      { success: true, resume: parsedResume },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("🔥 CRITICAL GENERATION ERROR:", error);
-    return NextResponse.json({ error: "Failed to generate resume" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate resume" },
+      { status: 500 },
+    );
   }
 }

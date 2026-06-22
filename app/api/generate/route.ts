@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { authenticate } from "@/lib/auth/authenticate";
-import { generateText } from "ai"; // 👈 Switched back to generateText
+import { generateText } from "ai"; 
 import { z } from "zod";
 import { createGroq } from "@ai-sdk/groq";
 
-// You can keep the Zod schema for server-side validation if you want, 
-// but we won't pass it directly to the AI SDK.
 const resumeSchema = z.object({
   professionalSummary: z.string(),
   tailoredExperiences: z.array(
@@ -22,7 +20,18 @@ const resumeSchema = z.object({
 export async function POST(req: Request) {
   try {
     const payload = await authenticate(req);
-    const { jobDescription } = await req.json();
+    
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: "Invalid JSON format. Make sure multi-line strings are properly escaped with \\n." },
+        { status: 400 }
+      );
+    }
+
+    const { jobDescription } = body;
 
     if (!jobDescription) {
       return NextResponse.json(
@@ -50,12 +59,52 @@ export async function POST(req: Request) {
     }
 
     let optimizedDataString = `USER PROFILE:\n`;
-    // ... [Keep your existing flattening logic here] ...
 
+    if (rawUserData.profile) {
+      const { firstName, lastName } = rawUserData.profile;
+      const headline = (rawUserData.profile as any).headline;
+      const bio = (rawUserData.profile as any).bio;
+      optimizedDataString += `Name: ${firstName || ""} ${lastName || ""}\n`;
+      if (headline) optimizedDataString += `Headline: ${headline}\n`;
+      if (bio) optimizedDataString += `Bio/Summary: ${bio}\n`;
+      optimizedDataString += `\n`;
+    }
+
+    if (rawUserData.experiences && rawUserData.experiences.length > 0) {
+      optimizedDataString += `WORK EXPERIENCE:\n`;
+      rawUserData.experiences.forEach((exp: any) => {
+        optimizedDataString += `- Role: ${exp.title} at ${exp.company}\n`;
+        optimizedDataString += `  Duration: ${exp.startDate || "Unknown"} to ${exp.endDate || "Present"}\n`;
+        if (exp.description) {
+          optimizedDataString += `  Details: ${exp.description}\n`;
+        }
+      });
+      optimizedDataString += `\n`;
+    }
+
+    if (rawUserData.educations && rawUserData.educations.length > 0) {
+      optimizedDataString += `EDUCATION:\n`;
+      rawUserData.educations.forEach((edu: any) => {
+        optimizedDataString += `- Degree: ${edu.degree} at ${edu.school}\n`;
+        if (edu.fieldOfStudy) {
+          optimizedDataString += `  Field of Study: ${edu.fieldOfStudy}\n`;
+        }
+        optimizedDataString += `  Duration: ${edu.startDate || "Unknown"} to ${edu.endDate || "Present"}\n`;
+      });
+      optimizedDataString += `\n`;
+    }
+
+    if (rawUserData.skills && rawUserData.skills.length > 0) {
+      const skillNames = rawUserData.skills
+        .map((skill: any) => skill.name || skill)
+        .join(", ");
+
+      optimizedDataString += `SKILLS:\n${skillNames}\n`;
+    }
+    
     const safeJobDescription = jobDescription.substring(0, 3000);
     const userPrompt = `${optimizedDataString}\n\nJOB DESCRIPTION:\n${safeJobDescription}`;
 
-    // 👈 1. Update the system prompt to explicitly define the expected JSON structure
     const systemPrompt = `You are an expert ATS resume writer. Tailor the user's experience to the Job Description. 
 You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap it in markdown blocks or add any conversational text:
 {
@@ -76,7 +125,6 @@ You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap 
 
     console.log("🤖 Attempting generation with Groq...");
 
-    // 👈 2. Use generateText instead of generateObject
     const response = await generateText({
       model: groq("llama-3.3-70b-versatile"),
       system: systemPrompt,
@@ -85,9 +133,10 @@ You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap 
 
     console.log("✅ Successfully generated text with Groq");
 
-    // 👈 3. Clean and parse the response
-    // (This strips out any stray markdown formatting like ```json that the LLM might hallucinate)
-    const rawJsonString = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const rawJsonString = response.text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
     const parsedResume = JSON.parse(rawJsonString);
 
     return NextResponse.json(

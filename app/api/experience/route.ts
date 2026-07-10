@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       .where(
         eq(
           experiences.userId,
-          payload.userId as string
+          payload?.userId as string
         )
       );
 
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     const newExperience = await db
       .insert(experiences)
       .values({
-        userId: payload.userId as string,
+        userId: payload?.userId as string,
 
         company: parsedData.company,
 
@@ -199,7 +199,7 @@ export async function PATCH(req: Request) {
 
           eq(
             experiences.userId,
-            payload.userId as string
+            payload?.userId as string
           )
         )
       )
@@ -272,7 +272,7 @@ export async function DELETE(req: Request) {
 
           eq(
             experiences.userId,
-            payload.userId as string
+            payload?.userId as string
           )
         )
       )

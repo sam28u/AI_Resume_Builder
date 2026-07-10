@@ -4,7 +4,7 @@ export async function authenticate(req: Request) {
   const authHeader = req.headers.get("authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
-    throw new Error("Unauthorized");
+    return null;
   }
 
   const token = authHeader.split(" ")[1];

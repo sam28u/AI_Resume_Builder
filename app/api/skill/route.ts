@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     const userSkills = await db
       .select()
       .from(skills)
-      .where(eq(skills.userId, payload.userId as string));
+      .where(eq(skills.userId, payload?.userId as string));
 
     return NextResponse.json(userSkills, { status: 200 });
   } catch (error) {
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const newSkill = await db
       .insert(skills)
       .values({
-        userId: payload.userId as string,
+        userId: payload?.userId as string,
         category: parsedData.category,
         items: parsedData.items,
       })
@@ -109,7 +109,7 @@ export async function PATCH(req: Request) {
       .where(
         and(
           eq(skills.id, parsedData.skillId),
-          eq(skills.userId, payload.userId as string) // ensures user owns the skill
+          eq(skills.userId, payload?.userId as string) // ensures user owns the skill
         )
       )
       .returning();
@@ -158,7 +158,7 @@ export async function DELETE(req: Request) {
       .where(
         and(
           eq(skills.id, skillId),
-          eq(skills.userId, payload.userId as string) // ensures user owns the skill
+          eq(skills.userId, payload?.userId as string) // ensures user owns the skill
         )
       )
       .returning();

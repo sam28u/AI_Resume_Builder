@@ -113,7 +113,7 @@ export async function POST(req: Request) {
     // 2. Fetch User Data
     const rawUserData = await db.query.users.findFirst({
       where: (users: any, { eq }: any) =>
-        eq(users.id, payload.userId as string),
+        eq(users.id, payload?.userId as string),
       columns: { id: true },
       with: {
         profile: true,

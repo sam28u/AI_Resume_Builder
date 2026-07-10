@@ -15,7 +15,7 @@ const createProjectSchema = z.object({
 });
 
 const updateProjectSchema = z.object({
-  projectId: z.string().uuid("Invalid project ID"),
+  projectId: z.uuid("Invalid project ID"),
   name: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   technologies: z.array(z.string()).min(1).optional(),
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     const userProjects = await db
       .select()
       .from(projects)
-      .where(eq(projects.userId, payload.userId as string));
+      .where(eq(projects.userId, payload?.userId as string));
 
     return NextResponse.json(userProjects, { status: 200 });
   } catch (error) {
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     const newProject = await db
       .insert(projects)
       .values({
-        userId: payload.userId as string,
+        userId: payload?.userId as string,
         name: parsedData.name,
         description: parsedData.description,
         technologies: parsedData.technologies,
@@ -107,7 +107,7 @@ export async function PATCH(req: Request) {
       .where(
         and(
           eq(projects.id, parsedData.projectId),
-          eq(projects.userId, payload.userId as string)
+          eq(projects.userId, payload?.userId as string)
         )
       )
       .returning();
@@ -156,7 +156,7 @@ export async function DELETE(req: Request) {
       .where(
         and(
           eq(projects.id, projectId),
-          eq(projects.userId, payload.userId as string)
+          eq(projects.userId, payload?.userId as string)
         )
       )
       .returning();

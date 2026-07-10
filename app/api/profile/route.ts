@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       .where(
         eq(
           profiles.userId,
-          payload.userId as string
+          payload?.userId as string
         )
       )
       .limit(1);
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       .where(
         eq(
           profiles.userId,
-          payload.userId as string
+          payload?.userId as string
         )
       )
       .returning();
@@ -186,7 +186,7 @@ export async function PATCH(req: Request) {
       .where(
         eq(
           profiles.userId,
-          payload.userId as string
+          payload?.userId as string
         )
       )
       .returning();

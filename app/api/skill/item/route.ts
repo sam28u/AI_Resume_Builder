@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       .where(
         and(
           eq(skills.id, parsedData.skillId),
-          eq(skills.userId, payload.userId as string)
+          eq(skills.userId, payload?.userId as string)
         )
       )
       .limit(1);
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       .where(
         and(
           eq(skills.id, parsedData.skillId),
-          eq(skills.userId, payload.userId as string)
+          eq(skills.userId, payload?.userId as string)
         )
       )
       .returning();
@@ -115,7 +115,7 @@ export async function DELETE(req: Request) {
       .where(
         and(
           eq(skills.id, skillId),
-          eq(skills.userId, payload.userId as string)
+          eq(skills.userId, payload?.userId as string)
         )
       )
       .limit(1);
@@ -154,7 +154,7 @@ export async function DELETE(req: Request) {
       .where(
         and(
           eq(skills.id, skillId),
-          eq(skills.userId, payload.userId as string)
+          eq(skills.userId, payload?.userId as string)
         )
       )
       .returning();

@@ -1,15 +1,58 @@
-// ==========================================
-// Types
-// ==========================================
 export type Resume = {
   id: string;
   jobDescription: string;
+  generatedContent: string;
   createdAt: string;
 };
 
-// ==========================================
-// Token Management Utilities
-// ==========================================
+export type User = {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+
+export type Profile = {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  role?: string;
+};
+
+export type Experience = {
+  id: string;
+  company: string;
+  role: string;
+  startDate: string;
+  endDate: string | null;
+  description: string;
+};
+
+export type Education = {
+  id: string;
+  institution: string;
+  degree: string;
+  fieldOfStudy: string;
+  startDate: string;
+  endDate: string | null;
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  description: string;
+  technologies: string;
+  link?: string;
+  githubLink?: string;
+};
+
+export type Skill = {
+  id: string;
+  name: string;
+  category?: string;
+};
+
 const getAccessToken = () => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("accessToken");
@@ -27,18 +70,12 @@ export const clearTokens = () => {
   }
 };
 
-// ==========================================
-// Authentication Wrapper (The Magic)
-// ==========================================
-/**
- * A wrapper around `fetch` that automatically attaches the access token.
- * If the request fails due to expiration, it automatically attempts to refresh the token
- * using the HttpOnly cookie and retries the original request.
- */
-async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-  let token = getAccessToken();
+async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const token = getAccessToken();
 
-  // 1. Make the initial request
   let res = await fetch(url, {
     ...options,
     headers: {
@@ -48,22 +85,16 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
     },
   });
 
-  // 2. If the token is invalid/expired (Backend returns 401, or 500 due to the throw Error)
   if (res.status === 401 || res.status === 500) {
-    
-    // Attempt to refresh the token
     const refreshRes = await fetch("/api/auth/refresh", {
       method: "POST",
-      credentials: "include", // CRITICAL: This sends the HttpOnly refresh_token cookie
+      credentials: "include",
     });
 
     if (refreshRes.ok) {
       const refreshData = await refreshRes.json();
-      
-      // Save the new access token
       setAccessToken(refreshData.accessToken);
 
-      // Retry the original request with the NEW token
       res = await fetch(url, {
         ...options,
         headers: {
@@ -73,10 +104,9 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
         },
       });
     } else {
-      // Refresh failed (refresh token expired/revoked). Force logout.
       clearTokens();
       if (typeof window !== "undefined") {
-        window.location.href = "/login"; 
+        window.location.href = "/login";
       }
     }
   }
@@ -84,24 +114,23 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
   return res;
 }
 
-// ==========================================
-// API Endpoints
-// ==========================================
-
-export async function getResumes(): Promise<Resume[]> {
-  // Use the wrapper instead of raw fetch
-  const res = await fetchWithAuth("/api/resumes", {
-    method: "GET",
-  });
+async function apiRequest<T>(
+  url: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const res = await fetchWithAuth(url, options);
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to fetch resumes");
+    throw new Error(errorData.error || `API Error at ${url}`);
   }
-  
+
   return res.json();
 }
 
-// Add other protected routes here later using fetchWithAuth...
-// export async function createResume(data) { ... }
-// export async function deleteResume(id) { ... }
+export const getResumes = () => apiRequest<Resume[]>("/api/resumes");
+export const getProfile = () => apiRequest<Profile>("/api/profile");
+export const getExperiences = () => apiRequest<Experience[]>("/api/experience");
+export const getEducations = () => apiRequest<Education[]>("/api/education");
+export const getProjects = () => apiRequest<Project[]>("/api/project");
+export const getSkills = () => apiRequest<Skill[]>("/api/skill");

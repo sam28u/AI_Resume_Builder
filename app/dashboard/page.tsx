@@ -1,10 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FileText, Database, Brain, Plus, Settings, LogOut } from "lucide-react";
+import { FileText, Database, Brain, Plus, LogOut, User } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const stats = [
     { label: "Total Resumes", value: "3", icon: FileText, color: "text-blue-500" },
     { label: "Data Entries", value: "12", icon: Database, color: "text-purple-500" },
@@ -16,8 +18,8 @@ export default function DashboardPage() {
       {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border p-6 flex flex-col justify-between">
         <div>
-          <div className="text-xl font-bold mb-8 flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-linear-to-br from-primary to-blue-600" />
+          <div className="text-xl font-bold mb-8 flex items-center gap-2" onClick={() => router.push("/")} style={{ cursor: "pointer" }}>
+            <div className="w-6 h-6 rounded bg-linear-to-br from-primary to-blue-600"  />
             ResuForge
           </div>
           <nav className="space-y-2">
@@ -29,9 +31,16 @@ export default function DashboardPage() {
             </Link>
           </nav>
         </div>
-        <button className="flex items-center gap-3 px-4 py-2 text-muted-foreground hover:text-red-500 transition-colors">
-          <LogOut size={18} /> Sign Out
-        </button>
+        
+        {/* Bottom Section: Profile and Sign Out */}
+        <div className="space-y-1 border-t border-border pt-4">
+          <Link href="/me" className="flex items-center gap-3 px-4 py-2 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-colors">
+            <User size={18} /> Profile
+          </Link>
+          <button className="flex items-center w-full gap-3 px-4 py-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+            <LogOut size={18} /> Sign Out
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}

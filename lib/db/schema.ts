@@ -54,7 +54,7 @@ export const experiences = pgTable("experiences", {
   title: text("title").notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"), // null = present
-  descriptionBullets: jsonb("description_bullets").default([]).notNull(), // Array of strings
+  descriptionBullets: jsonb("description_bullets").default([]).notNull(), 
 });
 
 export const educations = pgTable("educations", {

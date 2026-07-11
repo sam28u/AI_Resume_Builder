@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, Variants, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Brain, FileText, Database, ArrowRight, Terminal } from "lucide-react";
+import { Brain, FileText, Database, ArrowRight, Terminal, User } from "lucide-react";
 
 // --- Animation Variants ---
 const fadeUp: Variants = {
@@ -31,12 +31,37 @@ const heroCardVariant: Variants = {
 export default function LandingPage() {
   const pathname = usePathname();
 
-  // --- Scroll Restoration Fix ---
+  // --- Auth State ---
+  const [isMounted, setIsMounted] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [firstName, setFirstName] = useState("");
+
+  // --- Scroll Restoration & Auth Check ---
   useEffect(() => {
-    // Forces the browser to start at the top of the page on reload,
-    // overriding aggressive scroll caching.
+    setIsMounted(true); // Prevents hydration mismatch on client render
+    
     if (typeof window !== "undefined") {
       window.scrollTo(0, 0);
+
+      // Check for auth token
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        setIsLoggedIn(true);
+        
+        // Attempt to parse the user's name from local storage
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          try {
+            const userObj = JSON.parse(userStr);
+            // Uses firstName if available, otherwise falls back to the first part of the email
+            setFirstName(userObj.firstName || userObj.email?.split('@')[0] || "User");
+          } catch (error) {
+            setFirstName("User");
+          }
+        } else {
+          setFirstName("User");
+        }
+      }
     }
   }, [pathname]);
 
@@ -97,17 +122,35 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center space-x-6 text-sm font-medium">
           <ThemeToggle />
-          <Link href="/login" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
-            Sign In
-          </Link>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Link
-              href="/register"
-              className="px-5 py-2.5 bg-primary text-primary-foreground rounded-full shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 transition-all block"
-            >
-              Get Started
-            </Link>
-          </motion.div>
+          
+          {/* AUTHENTICATION CONDITIONAL RENDERING */}
+          {isMounted && (
+            isLoggedIn ? (
+              <Link 
+                href="/me" 
+                className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                  <User size={14} />
+                </div>
+                <span className="font-semibold text-primary hidden sm:inline">{firstName}</span>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+                  Sign In
+                </Link>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Link
+                    href="/register"
+                    className="px-5 py-2.5 bg-primary text-primary-foreground rounded-full shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/40 transition-all block"
+                  >
+                    Get Started
+                  </Link>
+                </motion.div>
+              </>
+            )
+          )}
         </div>
       </motion.nav>
 
@@ -141,10 +184,10 @@ export default function LandingPage() {
             <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
                 <Link
-                  href="/register"
+                  href={isLoggedIn ? "/dashboard" : "/register"}
                   className="flex items-center justify-center gap-2 w-full px-8 py-4 bg-foreground text-background font-semibold rounded-full shadow-lg hover:shadow-xl transition-all"
                 >
-                  Start Building Free <ArrowRight size={18} />
+                  {isLoggedIn ? "Go to Dashboard" : "Start Building Free"} <ArrowRight size={18} />
                 </Link>
               </motion.div>
             </motion.div>

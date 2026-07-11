@@ -23,6 +23,9 @@ export default function ResumesPage() {
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Header */}
+      <div className="mb-4 text-sm text-muted-foreground">
+        back to <Link href="/dashboard" className="text-primary hover:text-blue-800">Dashboard</Link>
+      </div>
       <header className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold">My Resumes</h1>

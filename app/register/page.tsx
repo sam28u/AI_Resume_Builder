@@ -38,7 +38,7 @@ export default function RegisterPage() {
                 throw new Error(data.error || "Registration failed");
             }
 
-            router.push("/dashboard");
+            router.push("/login");
         } catch (err: any) {
             setError(err.message || "Failed to create account. Please try again.");
         } finally {

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { motion, Variants, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Brain, FileText, Database, ArrowRight, Terminal, User } from "lucide-react";
+import { getUserEmail } from "@/lib/api"; // Adjust the path if your api.ts is elsewhere
 
 // --- Animation Variants ---
 const fadeUp: Variants = {
@@ -38,30 +39,27 @@ export default function LandingPage() {
 
   // --- Scroll Restoration & Auth Check ---
   useEffect(() => {
-    setIsMounted(true); // Prevents hydration mismatch on client render
-    
-    if (typeof window !== "undefined") {
-      window.scrollTo(0, 0);
+    setIsMounted(true);
+    window.scrollTo(0, 0);
 
-      // Check for auth token
-      const token = localStorage.getItem("accessToken");
-      if (token) {
-        setIsLoggedIn(true);
-        
-        // Attempt to parse the user's name from local storage
-        const userStr = localStorage.getItem("user");
-        if (userStr) {
-          try {
-            const userObj = JSON.parse(userStr);
-            // Uses firstName if available, otherwise falls back to the first part of the email
-            setFirstName(userObj.firstName || userObj.email?.split('@')[0] || "User");
-          } catch (error) {
-            setFirstName("User");
-          }
-        } else {
-          setFirstName("User");
-        }
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      setIsLoggedIn(true);
+
+      const userStr = localStorage.getItem("user");
+      try {
+        const userObj = userStr ? JSON.parse(userStr) : null;
+
+        // Prioritize firstName from API, then email, then default
+        const email = getUserEmail();
+        const name = userObj?.firstName || email?.split('@')[0] || "User";
+        setFirstName(name);
+      } catch (error) {
+        setFirstName("User");
       }
+    } else {
+      setIsLoggedIn(false);
+      setFirstName("");
     }
   }, [pathname]);
 
@@ -122,12 +120,12 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center space-x-6 text-sm font-medium">
           <ThemeToggle />
-          
+
           {/* AUTHENTICATION CONDITIONAL RENDERING */}
           {isMounted && (
             isLoggedIn ? (
-              <Link 
-                href="/me" 
+              <Link
+                href="/me"
                 className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full transition-colors"
               >
                 <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground">

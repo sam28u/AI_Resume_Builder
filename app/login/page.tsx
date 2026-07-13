@@ -27,7 +27,16 @@ export default function LoginPage() {
                 body: JSON.stringify(data),
             });
 
-            if (!res.ok) throw new Error("Invalid credentials");
+            // Parse response body
+            const resData = await res.json();
+
+            if (!res.ok) throw new Error(resData.error || "Invalid credentials");
+
+            // --- CRITICAL FIX: STORE TO LOCALSTORAGE ---
+            localStorage.setItem("accessToken", resData.accessToken);
+            localStorage.setItem("user", JSON.stringify(resData.user));
+
+            // Redirect to dashboard
             router.push("/dashboard");
         } catch (err) {
             setError("Invalid email or password.");

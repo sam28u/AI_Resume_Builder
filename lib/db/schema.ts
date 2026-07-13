@@ -72,7 +72,7 @@ export const skills = pgTable("skills", {
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
-  category: text("category").notNull(),
+  category: text("category").notNull(), 
   items: jsonb("items").$type<{
     name: string;
     proficiency?: "beginner" | "intermediate" | "advanced" | "expert";

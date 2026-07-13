@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { signAccessToken, signRefreshToken } from "@/lib/auth/jwt";
 import { db } from "@/lib/db";
-import { users, refreshTokens } from "@/lib/db/schema";
+import { users, refreshTokens, profiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt"; // Use for real password checking
@@ -11,22 +11,41 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();
 
     // 1. Verify User (Mocked logic)
-    const user = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
     if (!user[0]) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 },
+      );
     }
 
     // Compare the raw password from the user with the hash in the database
-    const isPasswordValid = await bcrypt.compare(password, user[0].passwordHash);
-    
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user[0].passwordHash,
+    );
+
     if (!isPasswordValid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 },
+      );
     }
     // 2. Generate Tokens
     const tokenId = randomUUID(); // Unique ID for this refresh token
-    const accessToken = await signAccessToken({ userId: user[0].id, role: user[0].role });
-    const refreshToken = await signRefreshToken({ jti: tokenId, userId: user[0].id });
+    const accessToken = await signAccessToken({
+      userId: user[0].id,
+      role: user[0].role,
+    });
+    const refreshToken = await signRefreshToken({
+      jti: tokenId,
+      userId: user[0].id,
+    });
 
     // 3. Save Refresh Token in Database
     const expiresAt = new Date();
@@ -37,10 +56,24 @@ export async function POST(req: Request) {
       token: tokenId, // Store the ID, not the whole JWT
       expiresAt: expiresAt,
     });
-
-    // 4. Set Secure Cookie & Return Access Token
-    const response = NextResponse.json({ accessToken, user: { id: user[0].id, email: user[0].email } });
     
+    const profileData = await db
+      .select({ firstName: profiles.firstName })
+      .from(profiles)
+      .where(eq(profiles.userId, user[0].id))
+      .limit(1);
+
+    const firstName = profileData[0]?.firstName || null; // Extract string or null
+
+    const response = NextResponse.json({
+      accessToken,
+      user: {
+        id: user[0].id,
+        email: user[0].email,
+        firstName: firstName, // Send the clean string
+      },
+    });
+
     response.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -51,6 +84,9 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error) {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

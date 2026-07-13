@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   description: "Engineered with Next.js, Groq, and Typst.",
 };
 
-const queryClient = new QueryClient();
 
 export default function RootLayout({
   children,
@@ -26,7 +25,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>

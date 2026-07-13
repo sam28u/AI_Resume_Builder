@@ -1,36 +1,16 @@
-export type Resume = {
-  id: string;
-  jobDescription: string;
-  generatedContent: string;
-  createdAt: string;
-};
-
-export type User = {
-  id: string;
-  email: string;
-  createdAt: string;
-}
-
 export type Profile = {
   id: string;
   userId: string;
   firstName: string;
   lastName: string;
-  email?: string;
-  role?: string;
-};
-
-export type Experience = {
-  id: string;
-  company: string;
-  role: string;
-  startDate: string;
-  endDate: string | null;
-  description: string;
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  portfolioUrl: string | null;
 };
 
 export type Education = {
   id: string;
+  userId: string;
   institution: string;
   degree: string;
   fieldOfStudy: string;
@@ -38,26 +18,53 @@ export type Education = {
   endDate: string | null;
 };
 
-export type Project = {
+export type Experience = {
   id: string;
+  userId: string;
+  company: string;
+  title: string;
+  startDate: string;
+  endDate: string | null;
+  descriptionBullets: string[];
+};
+
+export type SkillItem = {
   name: string;
-  description: string;
-  technologies: string;
-  link?: string;
-  githubLink?: string;
+  proficiency?: "beginner" | "intermediate" | "advanced" | "expert";
+  yearsOfExperience?: number;
 };
 
 export type Skill = {
   id: string;
+  userId: string;
+  category: string;
+  items: SkillItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Project = {
+  id: string;
+  userId: string;
   name: string;
-  category?: string;
+  description: string;
+  technologies: string[];
+  link: string | null;
+  githubLink: string | null;
+};
+
+export type Resume = {
+  id: string;
+  userId: string;
+  jobDescription: string;
+  generatedContent: any;
+  createdAt: string;
 };
 
 const getAccessToken = () => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("accessToken");
 };
-
 export const setAccessToken = (token: string) => {
   if (typeof window !== "undefined") {
     localStorage.setItem("accessToken", token);
@@ -69,13 +76,11 @@ export const clearTokens = () => {
     localStorage.removeItem("accessToken");
   }
 };
-
 async function fetchWithAuth(
   url: string,
   options: RequestInit = {},
 ): Promise<Response> {
   const token = getAccessToken();
-
   let res = await fetch(url, {
     ...options,
     headers: {
@@ -84,17 +89,14 @@ async function fetchWithAuth(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-
   if (res.status === 401 || res.status === 500) {
     const refreshRes = await fetch("/api/auth/refresh", {
       method: "POST",
       credentials: "include",
     });
-
     if (refreshRes.ok) {
       const refreshData = await refreshRes.json();
       setAccessToken(refreshData.accessToken);
-
       res = await fetch(url, {
         ...options,
         headers: {
@@ -110,7 +112,6 @@ async function fetchWithAuth(
       }
     }
   }
-
   return res;
 }
 
@@ -119,18 +120,154 @@ async function apiRequest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const res = await fetchWithAuth(url, options);
-
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || `API Error at ${url}`);
   }
-
   return res.json();
 }
 
-export const getResumes = () => apiRequest<Resume[]>("/api/resumes");
-export const getProfile = () => apiRequest<Profile>("/api/profile");
+export const getProfile = () => apiRequest<Profile | null>("/api/profile");
+
+export const updateProfileBasicInfo = (data: {
+  firstName?: string;
+  lastName?: string;
+}) =>
+  apiRequest<Profile>("/api/profile", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const updateProfileSocials = (data: {
+  githubUrl?: string;
+  linkedinUrl?: string;
+  portfolioUrl?: string;
+}) =>
+  apiRequest<Profile>("/api/profile", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getEducations = () =>
+  apiRequest<{ education: Education[] }>("/api/education").then(
+    (res) => res.education,
+  );
+
+export const createEducation = (data: Omit<Education, "id" | "userId">) =>
+  apiRequest<{ education: Education }>("/api/education", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }).then((res) => res.education);
+
+export const updateEducation = (data: Partial<Education> & { id: string }) =>
+  apiRequest<{ education: Education }>("/api/education", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  }).then((res) => res.education);
+
+export const deleteEducation = (id: string) =>
+  apiRequest<{ message: string }>(`/api/education?id=${id}`, {
+    method: "DELETE",
+  });
+
 export const getExperiences = () => apiRequest<Experience[]>("/api/experience");
-export const getEducations = () => apiRequest<Education[]>("/api/education");
+
+export const createExperience = (data: Omit<Experience, "id" | "userId">) =>
+  apiRequest<Experience>("/api/experience", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateExperience = (data: Partial<Experience> & { id: string }) =>
+  apiRequest<Experience>("/api/experience", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteExperience = (id: string) =>
+  apiRequest<{ message: string }>("/api/experience", {
+    method: "DELETE",
+    body: JSON.stringify({ id }),
+  });
+
 export const getProjects = () => apiRequest<Project[]>("/api/project");
+
+export const createProject = (data: Omit<Project, "id" | "userId">) =>
+  apiRequest<Project>("/api/project", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateProject = (data: Partial<Project> & { projectId: string }) =>
+  apiRequest<Project>("/api/project", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteProject = (projectId: string) =>
+  apiRequest<{ message: string }>(`/api/project?projectId=${projectId}`, {
+    method: "DELETE",
+  });
+
 export const getSkills = () => apiRequest<Skill[]>("/api/skill");
+
+export const createSkillCategory = (data: {
+  category: string;
+  items: SkillItem[];
+}) =>
+  apiRequest<Skill>("/api/skill", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateSkillCategory = (data: {
+  skillId: string;
+  category?: string;
+  items?: SkillItem[];
+}) =>
+  apiRequest<Skill>("/api/skill", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const deleteSkillCategory = (skillId: string) =>
+  apiRequest<{ message: string }>(`/api/skill?skillId=${skillId}`, {
+    method: "DELETE",
+  });
+
+export const addSkillItem = (data: { skillId: string; item: SkillItem }) =>
+  apiRequest<Skill>("/api/skill/item", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const deleteSkillItem = (skillId: string, itemName: string) =>
+  apiRequest<Skill>(
+    `/api/skill/item?skillId=${skillId}&itemName=${encodeURIComponent(itemName)}`,
+    { method: "DELETE" },
+  );
+
+export const getResumes = () => apiRequest<Resume[]>("/api/resumes");
+
+export const createResume = (data: {
+  jobDescription: string;
+  generatedContent: any;
+}) =>
+  apiRequest<Resume>("/api/resumes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getUserEmail = () => {
+  if (typeof window === "undefined") return null;
+  const userStr = localStorage.getItem("user");
+  if (userStr) {
+    try {
+      const userObj = JSON.parse(userStr);
+      return userObj.email; // Here is your email!
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};

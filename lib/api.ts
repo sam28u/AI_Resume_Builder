@@ -271,3 +271,81 @@ export const getUserEmail = () => {
   }
   return null;
 };
+
+export const generateAndDownloadResume = async (
+  jobDescription: string,
+  filename: string = "tailored-resume.pdf",
+): Promise<void> => {
+  const token = getAccessToken();
+
+  const res = await fetch("/api/generate-resume", {
+    // Adjust the URL if your API route is different
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ jobDescription }),
+  });
+
+  if (res.status === 401) {
+    // Attempt token refresh logic as defined in your fetchWithAuth helper
+    const refreshRes = await fetch("/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (refreshRes.ok) {
+      const refreshData = await refreshRes.json();
+      setAccessToken(refreshData.accessToken);
+
+      // Retry the request with the new token
+      const retryRes = await fetch("/api/generate-resume", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshData.accessToken}`,
+        },
+        body: JSON.stringify({ jobDescription }),
+      });
+
+      if (!retryRes.ok) {
+        throw new Error("Failed to generate resume after token refresh");
+      }
+
+      return handlePdfDownload(retryRes, filename);
+    } else {
+      clearTokens();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      throw new Error("Authentication failed");
+    }
+  }
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to generate resume");
+  }
+
+  return handlePdfDownload(res, filename);
+};
+
+// Helper function to handle the Blob conversion and download trigger
+const handlePdfDownload = async (
+  response: Response,
+  filename: string,
+): Promise<void> => {
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+
+  // Cleanup
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};

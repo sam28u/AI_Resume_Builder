@@ -23,7 +23,7 @@ export type Experience = {
   userId: string;
   company: string;
   title: string;
-  startDate: string;
+  startDate: string | null;
   endDate: string | null;
   descriptionBullets: string[];
 };
@@ -153,12 +153,6 @@ export const getEducations = () =>
     (res) => res.education,
   );
 
-export const createEducation = (data: Omit<Education, "id" | "userId">) =>
-  apiRequest<{ education: Education }>("/api/education", {
-    method: "POST",
-    body: JSON.stringify(data),
-  }).then((res) => res.education);
-
 export const updateEducation = (data: Partial<Education> & { id: string }) =>
   apiRequest<{ education: Education }>("/api/education", {
     method: "PATCH",
@@ -171,12 +165,6 @@ export const deleteEducation = (id: string) =>
   });
 
 export const getExperiences = () => apiRequest<Experience[]>("/api/experience");
-
-export const createExperience = (data: Omit<Experience, "id" | "userId">) =>
-  apiRequest<Experience>("/api/experience", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
 
 export const updateExperience = (data: Partial<Experience> & { id: string }) =>
   apiRequest<Experience>("/api/experience", {
@@ -191,12 +179,6 @@ export const deleteExperience = (id: string) =>
   });
 
 export const getProjects = () => apiRequest<Project[]>("/api/project");
-
-export const createProject = (data: Omit<Project, "id" | "userId">) =>
-  apiRequest<Project>("/api/project", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
 
 export const updateProject = (data: Partial<Project> & { projectId: string }) =>
   apiRequest<Project>("/api/project", {
@@ -349,3 +331,48 @@ const handlePdfDownload = async (
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
 };
+
+// updated
+
+export type DashboardData = {
+  stats: {
+    resumesGenerated: number;
+    dataEntries: number;
+    totalSkills: number; // Updated type
+  };
+  recentActivity: Resume[];
+};
+
+export const getDashboardData = () =>
+  apiRequest<DashboardData>("/api/dashboard");
+
+export const updateProfile = (data: Partial<Profile>) =>
+  apiRequest<Profile>("/api/me/profile", {
+    method: "PUT", // or POST depending on your backend
+    body: JSON.stringify(data),
+  });
+
+export const createExperience = (data: Omit<Experience, "id" | "userId">) =>
+  apiRequest<Experience>("/api/experience", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json", // Ensure the backend parses this correctly
+    },
+    body: JSON.stringify(data),
+  });
+
+export const createEducation = (data: Omit<Education, "id" | "userId">) =>
+  apiRequest<Education>("/api/education", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+export const createProject = (data: Omit<Project, "id" | "userId">) =>
+  apiRequest<Project>("/api/project", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });

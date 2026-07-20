@@ -16,9 +16,7 @@ const skillItemSchema = z.object({
 
 const skillSchema = z.object({
   category: z.string().min(1, "Category is required"),
-  items: z
-    .array(skillItemSchema)
-    .min(1, "At least one skill item is required"),
+  items: z.array(skillItemSchema).min(1, "At least one skill item is required"),
 });
 
 const updateSkillSchema = z.object({
@@ -42,7 +40,7 @@ export async function GET(req: Request) {
     console.error("GET Skills Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch skills" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -54,6 +52,32 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsedData = skillSchema.parse(body);
 
+    // 1. Check if a category with this name already exists for this user
+    const existingSkill = await db
+      .select()
+      .from(skills)
+      .where(
+        and(
+          eq(skills.userId, payload?.userId as string),
+          eq(skills.category, parsedData.category),
+        ),
+      )
+      .limit(1);
+
+    if (existingSkill.length > 0) {
+      // 2. If it exists, append the new items to the existing ones
+      const updatedItems = [...existingSkill[0].items, ...parsedData.items];
+
+      const updated = await db
+        .update(skills)
+        .set({ items: updatedItems })
+        .where(eq(skills.id, existingSkill[0].id))
+        .returning();
+
+      return NextResponse.json(updated[0], { status: 200 });
+    }
+
+    // 3. Otherwise, create the new category as usual
     const newSkill = await db
       .insert(skills)
       .values({
@@ -70,13 +94,13 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid input", details: error.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to add skills" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -100,8 +124,7 @@ export async function PATCH(req: Request) {
     if (parsedData.category !== undefined)
       updateData.category = parsedData.category;
 
-    if (parsedData.items !== undefined)
-      updateData.items = parsedData.items;
+    if (parsedData.items !== undefined) updateData.items = parsedData.items;
 
     const updatedSkill = await db
       .update(skills)
@@ -109,16 +132,13 @@ export async function PATCH(req: Request) {
       .where(
         and(
           eq(skills.id, parsedData.skillId),
-          eq(skills.userId, payload?.userId as string) // ensures user owns the skill
-        )
+          eq(skills.userId, payload?.userId as string), // ensures user owns the skill
+        ),
       )
       .returning();
 
     if (updatedSkill.length === 0) {
-      return NextResponse.json(
-        { error: "Skill not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Skill not found" }, { status: 404 });
     }
 
     return NextResponse.json(updatedSkill[0], { status: 200 });
@@ -128,13 +148,13 @@ export async function PATCH(req: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid input", details: error.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       { error: "Failed to update skills" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -149,7 +169,7 @@ export async function DELETE(req: Request) {
     if (!skillId) {
       return NextResponse.json(
         { error: "skillId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -158,27 +178,24 @@ export async function DELETE(req: Request) {
       .where(
         and(
           eq(skills.id, skillId),
-          eq(skills.userId, payload?.userId as string) // ensures user owns the skill
-        )
+          eq(skills.userId, payload?.userId as string), // ensures user owns the skill
+        ),
       )
       .returning();
 
     if (deletedSkill.length === 0) {
-      return NextResponse.json(
-        { error: "Skill not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Skill not found" }, { status: 404 });
     }
 
     return NextResponse.json(
       { message: "Skill deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("DELETE Skills Error:", error);
     return NextResponse.json(
       { error: "Failed to delete skills" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

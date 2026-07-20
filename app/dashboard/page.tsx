@@ -1,15 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FileText, Database, Brain, Plus, Loader2 } from "lucide-react";
+import { FileText, Database, Lightbulb, Plus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
-import { getResumes, getExperiences, getEducations, getProjects, getSkills, Resume } from "@/lib/api";
+import { getDashboardData, Resume } from "@/lib/api";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [metrics, setMetrics] = useState({ totalResumes: 0, dataEntries: 0 });
+  
+  // Updated state metrics
+  const [metrics, setMetrics] = useState({ resumesGenerated: 0, dataEntries: 0, totalSkills: 0 });
   const [recentResumes, setRecentResumes] = useState<Resume[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,34 +19,26 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [resumes, experiences, educations, projects, skills] = await Promise.all([
-          getResumes().catch(() => [] as Resume[]),
-          getExperiences().catch(() => []),
-          getEducations().catch(() => []),
-          getProjects().catch(() => []),
-          getSkills().catch(() => []),
-        ]);
-
-        const totalEntries = experiences.length + educations.length + projects.length + skills.length;
-        setMetrics({ totalResumes: resumes.length, dataEntries: totalEntries });
-
-        const sortedResumes = resumes
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, 3);
-        setRecentResumes(sortedResumes);
+        setIsLoading(true);
+        const data = await getDashboardData();
+        setMetrics(data.stats);
+        setRecentResumes(data.recentActivity);
       } catch (err) {
+        console.error("Dashboard fetch error:", err);
         setError("Could not load dashboard data.");
       } finally {
         setIsLoading(false);
       }
     };
+    
     fetchDashboardData();
   }, []);
 
+  // Updated Config with the new metrics and icons
   const statsConfig = [
-    { label: "Total Resumes", value: metrics.totalResumes, icon: FileText, color: "text-blue-500" },
+    { label: "Resumes Generated", value: metrics.resumesGenerated, icon: FileText, color: "text-blue-500" },
     { label: "Data Entries", value: metrics.dataEntries, icon: Database, color: "text-purple-500" },
-    { label: "AI Generations", value: metrics.totalResumes, icon: Brain, color: "text-primary" },
+    { label: "Total Skills", value: metrics.totalSkills, icon: Lightbulb, color: "text-amber-500" },
   ];
 
   return (
@@ -70,6 +64,7 @@ export default function DashboardPage() {
           <div className="p-4 bg-red-500/10 text-red-500 rounded-lg border border-red-500/20">{error}</div>
         ) : (
           <>
+            {/* Stats Grid */}
             <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-12">
               {statsConfig.map((stat, i) => (
                 <motion.div 
@@ -86,6 +81,7 @@ export default function DashboardPage() {
               ))}
             </section>
 
+            {/* Recent Resumes List */}
             <section className="bg-card border border-border rounded-3xl p-6 md:p-8 shadow-sm">
               <h2 className="font-bold text-xl mb-6">Recent Resumes</h2>
               {recentResumes.length === 0 ? (

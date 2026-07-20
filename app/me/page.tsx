@@ -1,26 +1,30 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Loader2, Briefcase, GraduationCap, Code, Lightbulb, Globe, Calendar, Link as LinkIcon, Plus, Pencil, Mail } from "lucide-react";
+import { Loader2, Briefcase, GraduationCap, Code, Lightbulb, Globe, Calendar, Plus, Pencil, Mail , ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image"; // Added Image import
 import { Navbar } from "@/components/Navbar";
 
 // Import all API functions and types
-import { 
-  getProfile, 
-  getExperiences, 
-  getEducations, 
-  getProjects, 
-  getSkills, 
+import {
+  getProfile,
+  getExperiences,
+  getEducations,
+  getProjects,
+  getSkills,
   getUserEmail,
-  Profile, 
-  Experience, 
-  Education, 
-  Project, 
-  Skill 
+  Profile,
+  Experience,
+  Education,
+  Project,
+  Skill
 } from "@/lib/api";
 
 export default function ProfilePage() {
+  const router = useRouter();
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>("");
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -33,9 +37,7 @@ export default function ProfilePage() {
     const fetchAllData = async () => {
       try {
         setIsLoading(true);
-        
-        // Fetch all domain data in parallel for maximum performance
-        // .catch ensures that if one resource is empty/404, it doesn't break the rest of the page
+
         const [prof, exps, edus, projs, skls] = await Promise.all([
           getProfile().catch(() => null),
           getExperiences().catch(() => []),
@@ -57,7 +59,7 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     };
-    
+
     fetchAllData();
   }, []);
 
@@ -69,7 +71,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-muted/10 flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 p-6 md:p-8 max-w-5xl mx-auto w-full">
         <header className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">Your Profile</h1>
@@ -82,7 +84,7 @@ export default function ProfilePage() {
           </div>
         ) : (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 pb-12">
-            
+
             {/* 1. Basic Info */}
             <section className="bg-card border border-border rounded-3xl p-8 shadow-sm relative group">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -99,11 +101,25 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex gap-2">
-                    {profile?.githubUrl && <a href={profile.githubUrl} className="p-3 bg-muted rounded-full hover:bg-primary/10 hover:text-primary transition-colors"><Code size={20} /></a>}
-                    {profile?.linkedinUrl && <a href={profile.linkedinUrl} className="p-3 bg-muted rounded-full hover:bg-primary/10 hover:text-primary transition-colors"><LinkIcon size={20} /></a>}
-                    {profile?.portfolioUrl && <a href={profile.portfolioUrl} className="p-3 bg-muted rounded-full hover:bg-primary/10 hover:text-primary transition-colors"><Globe size={20} /></a>}
+                    {/* Updated GitHub Icon */}
+                    {profile?.githubUrl && (
+                      <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-muted rounded-full hover:bg-primary/10 transition-colors flex items-center justify-center">
+                        <Image src="/github.svg" alt="GitHub" width={20} height={20} className="opacity-70 dark:invert" />
+                      </a>
+                    )}
+                    {/* Updated LinkedIn Icon */}
+                    {profile?.linkedinUrl && (
+                      <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-muted rounded-full hover:bg-primary/10 transition-colors flex items-center justify-center">
+                        <Image src="/linkedin.svg" alt="LinkedIn" width={20} height={20} className="opacity-70 dark:invert" />
+                      </a>
+                    )}
+                    {profile?.portfolioUrl && (
+                      <a href={profile.portfolioUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-muted rounded-full hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center">
+                        <Globe size={20} />
+                      </a>
+                    )}
                   </div>
-                  <button className="p-3 text-muted-foreground bg-muted hover:bg-primary/10 hover:text-primary rounded-full transition-colors"><Pencil size={20} /></button>
+                  <button onClick={() => router.push("/me/profile")} className="p-3 text-muted-foreground bg-muted hover:bg-primary/10 hover:text-primary rounded-full transition-colors"><Pencil size={20} /></button>
                 </div>
               </div>
             </section>
@@ -113,7 +129,7 @@ export default function ProfilePage() {
               <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center justify-between border-b border-border pb-5 mb-6">
                   <h3 className="text-2xl font-bold flex items-center gap-3"><Briefcase className="text-blue-500" size={26} /> Experience</h3>
-                  <button className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
+                  <button onClick={() => router.push("/me/experience/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
                 </div>
                 {experiences.length === 0 ? (
                   <p className="text-muted-foreground italic text-sm">No experience added yet.</p>
@@ -124,7 +140,7 @@ export default function ProfilePage() {
                         <div className="absolute w-3.5 h-3.5 bg-blue-500 rounded-full -left-[9px] top-1.5" />
                         <div className="flex justify-between items-start pr-8">
                           <h4 className="font-bold text-lg">{exp.title}</h4>
-                          <button className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-primary transition-all"><Pencil size={18} /></button>
+                          <button onClick={() => router.push(`/me/experience/${exp.id}`)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-primary transition-all"><Pencil size={18} /></button>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium text-muted-foreground mb-3 mt-1">
                           <span className="text-foreground">{exp.company}</span>
@@ -143,7 +159,7 @@ export default function ProfilePage() {
               <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center justify-between border-b border-border pb-5 mb-6">
                   <h3 className="text-2xl font-bold flex items-center gap-3"><GraduationCap className="text-purple-500" size={26} /> Education</h3>
-                  <button className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
+                  <button onClick={() => router.push("/me/education/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
                 </div>
                 {educations.length === 0 ? (
                   <p className="text-muted-foreground italic text-sm">No education added yet.</p>
@@ -154,7 +170,7 @@ export default function ProfilePage() {
                         <div className="absolute w-3.5 h-3.5 bg-purple-500 rounded-full -left-[9px] top-1.5" />
                         <div className="flex justify-between items-start pr-8">
                           <h4 className="font-bold text-lg">{edu.institution}</h4>
-                          <button className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-primary transition-all"><Pencil size={18} /></button>
+                          <button onClick={() => router.push(`/me/education/${edu.id}`)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-primary transition-all"><Pencil size={18} /></button>
                         </div>
                         <div className="text-sm font-medium text-foreground mb-2 mt-1">{edu.degree} in {edu.fieldOfStudy}</div>
                         <span className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
@@ -170,7 +186,7 @@ export default function ProfilePage() {
               <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center justify-between border-b border-border pb-5 mb-6">
                   <h3 className="text-2xl font-bold flex items-center gap-3"><Code className="text-indigo-500" size={26} /> Projects</h3>
-                  <button className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
+                  <button onClick={() => router.push("/me/project/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
                 </div>
                 {projects.length === 0 ? (
                   <p className="text-muted-foreground italic text-sm">No projects added yet.</p>
@@ -178,11 +194,22 @@ export default function ProfilePage() {
                   <div className="space-y-4">
                     {projects.map((proj) => (
                       <div key={proj.id} className="group p-5 bg-muted/40 border border-border rounded-2xl relative">
-                        <div className="flex justify-between items-start mb-3 pr-16">
+                        <div className="flex justify-between items-start mb-3 pr-24">
                           <h4 className="font-bold">{proj.name}</h4>
                           <div className="absolute right-4 top-4 flex gap-2">
-                            {proj.githubLink && <a href={proj.githubLink} className="text-muted-foreground hover:text-foreground"><Code size={18} /></a>}
-                            <button className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all ml-2"><Pencil size={18} /></button>
+                            {/* GitHub Icon */}
+                            {proj.githubLink && (
+                              <a href={proj.githubLink} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity flex items-center justify-center p-1">
+                                <Image src="/github.svg" alt="GitHub" width={18} height={18} className="opacity-70 dark:invert" />
+                              </a>
+                            )}
+                            {/* NEW: Live URL Icon */}
+                            {proj.link && (
+                              <a href={proj.link} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity flex items-center justify-center p-1 text-muted-foreground hover:text-primary">
+                                <ExternalLink size={18} />
+                              </a>
+                            )}
+                            <button onClick={() => router.push(`/me/project/${proj.id}`)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all ml-2"><Pencil size={18} /></button>
                           </div>
                         </div>
                         <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{proj.description}</p>
@@ -199,7 +226,7 @@ export default function ProfilePage() {
               <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center justify-between border-b border-border pb-5 mb-6">
                   <h3 className="text-2xl font-bold flex items-center gap-3"><Lightbulb className="text-amber-500" size={26} /> Skills</h3>
-                  <button className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
+                  <button onClick={() => router.push("/me/skills/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
                 </div>
                 {skills.length === 0 ? (
                   <p className="text-muted-foreground italic text-sm">No skills added yet.</p>

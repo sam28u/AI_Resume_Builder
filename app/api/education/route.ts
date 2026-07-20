@@ -6,25 +6,20 @@ import { authenticate } from "@/lib/auth/authenticate";
 import { z } from "zod";
 
 const educationSchema = z.object({
-  institution: z.string().min(1),
-  degree: z.string().min(1),
-  fieldOfStudy: z.string().min(1),
-
-  startDate: z.string().refine(
-    (date) => !isNaN(Date.parse(date)),
-    {
-      message: "Invalid start date format",
-    }
-  ),
-
+  institution: z.string().min(1, "Institution is required"),
+  degree: z.string().min(1, "Degree is required"),
+  fieldOfStudy: z.string().min(1, "Field of study is required"),
+  startDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
+    message: "Invalid start date format",
+  }),
+  // Allow the input to be either a valid date string OR null
   endDate: z
-    .string()
-    .refine(
-      (date) => !isNaN(Date.parse(date)),
-      {
+    .union([
+      z.string().refine((date) => !isNaN(Date.parse(date)), {
         message: "Invalid end date format",
-      }
-    )
+      }),
+      z.null(),
+    ])
     .optional(),
 });
 
@@ -36,30 +31,22 @@ export async function GET(request: Request) {
     const educationEntries = await db
       .select()
       .from(educations)
-      .where(
-        eq(
-          educations.userId,
-          payload?.userId as string
-        )
-      );
+      .where(eq(educations.userId, payload?.userId as string));
 
     return NextResponse.json(
       {
         education: educationEntries,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
-    console.error(
-      "❌ GET Education Error:",
-      error
-    );
+    console.error("❌ GET Education Error:", error);
 
     return NextResponse.json(
       {
         error: "Failed to fetch education entries",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -71,43 +58,28 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const parsedData =
-      educationSchema.parse(body);
+    const parsedData = educationSchema.parse(body);
 
     const newEducation = await db
-      .insert(educations)
-      .values({
-        userId: payload?.userId as string,
-
-        institution:
-          parsedData.institution,
-
-        degree: parsedData.degree,
-
-        fieldOfStudy:
-          parsedData.fieldOfStudy,
-
-        startDate: new Date(
-          parsedData.startDate
-        ),
-
-        endDate: parsedData.endDate
-          ? new Date(parsedData.endDate)
-          : null,
-      })
-      .returning();
+  .insert(educations)
+  .values({
+    userId: payload?.userId as string,
+    institution: parsedData.institution,
+    degree: parsedData.degree,
+    fieldOfStudy: parsedData.fieldOfStudy,
+    startDate: new Date(parsedData.startDate),
+    endDate: parsedData.endDate ? new Date(parsedData.endDate) : null,
+  })
+  .returning();
 
     return NextResponse.json(
       {
         education: newEducation[0],
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
-    console.error(
-      "❌ POST Education Error:",
-      error
-    );
+    console.error("❌ POST Education Error:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -115,16 +87,15 @@ export async function POST(request: Request) {
           error: "Invalid input",
           details: error.flatten(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       {
-        error:
-          "Failed to create education entry",
+        error: "Failed to create education entry",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -136,13 +107,11 @@ export async function PATCH(request: Request) {
 
     const body = await request.json();
 
-    const updateSchema =
-      educationSchema.partial().extend({
-        id: z.string().min(1),
-      });
+    const updateSchema = educationSchema.partial().extend({
+      id: z.string().min(1),
+    });
 
-    const parsedData =
-      updateSchema.parse(body);
+    const parsedData = updateSchema.parse(body);
 
     const { id, ...rest } = parsedData;
 
@@ -155,11 +124,17 @@ export async function PATCH(request: Request) {
       endDate?: Date | null;
     } = {};
 
-    if (rest.institution !== undefined) updateData.institution = rest.institution;
+    if (rest.institution !== undefined)
+      updateData.institution = rest.institution;
     if (rest.degree !== undefined) updateData.degree = rest.degree;
-    if (rest.fieldOfStudy !== undefined) updateData.fieldOfStudy = rest.fieldOfStudy;
-    if (rest.startDate !== undefined) updateData.startDate = rest.startDate ? new Date(rest.startDate) : undefined;
-    if (rest.endDate !== undefined) updateData.endDate = rest.endDate ? new Date(rest.endDate) : null;
+    if (rest.fieldOfStudy !== undefined)
+      updateData.fieldOfStudy = rest.fieldOfStudy;
+    if (rest.startDate !== undefined)
+      updateData.startDate = rest.startDate
+        ? new Date(rest.startDate)
+        : undefined;
+    if (rest.endDate !== undefined)
+      updateData.endDate = rest.endDate ? new Date(rest.endDate) : null;
 
     const updatedEducation = await db
       .update(educations)
@@ -168,21 +143,17 @@ export async function PATCH(request: Request) {
         and(
           eq(educations.id, id),
 
-          eq(
-            educations.userId,
-            payload?.userId as string
-          )
-        )
+          eq(educations.userId, payload?.userId as string),
+        ),
       )
       .returning();
 
     if (updatedEducation.length === 0) {
       return NextResponse.json(
         {
-          error:
-            "Education entry not found or unauthorized",
+          error: "Education entry not found or unauthorized",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -190,13 +161,10 @@ export async function PATCH(request: Request) {
       {
         education: updatedEducation[0],
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
-    console.error(
-      "❌ PATCH Education Error:",
-      error
-    );
+    console.error("❌ PATCH Education Error:", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -204,16 +172,15 @@ export async function PATCH(request: Request) {
           error: "Invalid input",
           details: error.flatten(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       {
-        error:
-          "Failed to update education entry",
+        error: "Failed to update education entry",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -223,19 +190,16 @@ export async function DELETE(request: Request) {
   try {
     const payload = await authenticate(request);
 
-    const { searchParams } = new URL(
-      request.url
-    );
+    const { searchParams } = new URL(request.url);
 
     const id = searchParams.get("id");
 
     if (!id) {
       return NextResponse.json(
         {
-          error:
-            "Education entry ID is required",
+          error: "Education entry ID is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -245,43 +209,34 @@ export async function DELETE(request: Request) {
         and(
           eq(educations.id, id),
 
-          eq(
-            educations.userId,
-            payload?.userId as string
-          )
-        )
+          eq(educations.userId, payload?.userId as string),
+        ),
       )
       .returning();
 
     if (deletedEducation.length === 0) {
       return NextResponse.json(
         {
-          error:
-            "Education entry not found or unauthorized",
+          error: "Education entry not found or unauthorized",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     return NextResponse.json(
       {
-        message:
-          "Education entry deleted successfully",
+        message: "Education entry deleted successfully",
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
-    console.error(
-      "❌ DELETE Education Error:",
-      error
-    );
+    console.error("❌ DELETE Education Error:", error);
 
     return NextResponse.json(
       {
-        error:
-          "Failed to delete education entry",
+        error: "Failed to delete education entry",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

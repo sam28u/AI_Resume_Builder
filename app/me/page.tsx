@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Loader2, Briefcase, GraduationCap, Code, Lightbulb, Globe, Calendar, Plus, Pencil, Mail , ExternalLink } from "lucide-react";
+import { Loader2, Briefcase, GraduationCap, Code, Lightbulb, Globe, Calendar, Plus, Pencil, Mail, ExternalLink, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image"; // Added Image import
@@ -19,12 +19,13 @@ import {
   Experience,
   Education,
   Project,
-  Skill
+  Skill,
+  deleteSkillItem
 } from "@/lib/api";
 
 export default function ProfilePage() {
   const router = useRouter();
-
+  const [isEditingSkills, setIsEditingSkills] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>("");
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -225,9 +226,22 @@ export default function ProfilePage() {
               {/* 5. Skills */}
               <section className="bg-card border border-border rounded-3xl p-8 shadow-sm">
                 <div className="flex items-center justify-between border-b border-border pb-5 mb-6">
-                  <h3 className="text-2xl font-bold flex items-center gap-3"><Lightbulb className="text-amber-500" size={26} /> Skills</h3>
-                  <button onClick={() => router.push("/me/skills/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20"><Plus size={20} /></button>
+                  <h3 className="text-2xl font-bold flex items-center gap-3">
+                    <Lightbulb className="text-amber-500" size={26} /> Skills
+                  </h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIsEditingSkills(!isEditingSkills)}
+                      className={`p-2 rounded-xl transition-all ${isEditingSkills ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"}`}
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button onClick={() => router.push("/me/skills/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20">
+                      <Plus size={20} />
+                    </button>
+                  </div>
                 </div>
+
                 {skills.length === 0 ? (
                   <p className="text-muted-foreground italic text-sm">No skills added yet.</p>
                 ) : (
@@ -236,13 +250,33 @@ export default function ProfilePage() {
                       <div key={group.id} className="group relative">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-widest">{group.category}</h4>
-                          <button className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-primary transition-all"><Pencil size={16} /></button>
+                          {/* Redirect to Edit Page when category pencil is clicked */}
+                          {isEditingSkills && (
+                            <button
+                              onClick={() => router.push(`/me/skills/${group.id}`)}
+                              className="p-1.5 text-primary hover:bg-primary/10 rounded-lg"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          )}
                         </div>
+
                         <div className="flex flex-wrap gap-2.5">
                           {group.items.map((item, i) => (
-                            <span key={i} className="px-3.5 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-semibold">
-                              {item.name}
-                            </span>
+                            <div key={i} className="relative flex items-center">
+                              <span className="px-3.5 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-semibold pr-8">
+                                {item.name}
+                              </span>
+                              {/* Delete button appears when editing */}
+                              {isEditingSkills && (
+                                <button
+                                  onClick={() => deleteSkillItem(group.id, item.name)}
+                                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                                >
+                                  <X size={12} />
+                                </button>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>

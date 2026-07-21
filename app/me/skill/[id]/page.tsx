@@ -29,9 +29,17 @@ export default function EditSkillPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
-        await updateSkillCategory({ skillId: id, ...formData });
-        deleteSkillCategory(id);
-        router.push("/me");
+        try {
+            await updateSkillCategory({
+                skillId: id,
+                category: formData.category,
+                items: formData.items.filter(item => item.name.trim() !== "")
+            });
+            router.push("/me");
+        } catch (err) {
+            console.error("Failed to update skills", err);
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -53,7 +61,28 @@ export default function EditSkillPage() {
                                 <label className="block font-bold mb-3">Skill Items</label>
                                 {formData.items.map((item, i) => (
                                     <div key={i} className="flex gap-2 mb-3">
-                                        <input className="flex-1 p-3 bg-muted/30 border border-border rounded-2xl focus:ring-2 focus:ring-primary/50 outline-none" value={item.name} onChange={(e) => { const n = [...formData.items]; n[i].name = e.target.value; setFormData({ ...formData, items: n }); }} />
+                                        <input 
+                                            className="flex-1 p-3 bg-muted/30 border border-border rounded-2xl focus:ring-2 focus:ring-primary/50 outline-none" 
+                                            value={item.name} 
+                                            onChange={(e) => { const n = [...formData.items]; n[i].name = e.target.value; setFormData({ ...formData, items: n }); }} 
+                                        />
+                                        
+                                        {/* Added Proficiency Dropdown */}
+                                        <select 
+                                            className="p-3 bg-muted/30 border border-border rounded-2xl outline-none" 
+                                            value={item.proficiency || "beginner"} 
+                                            onChange={(e) => { 
+                                                const n = [...formData.items]; 
+                                                n[i].proficiency = e.target.value; 
+                                                setFormData({ ...formData, items: n }); 
+                                            }}
+                                        >
+                                            <option value="beginner">Beginner</option>
+                                            <option value="intermediate">Intermediate</option>
+                                            <option value="advanced">Advanced</option>
+                                            <option value="expert">Expert</option>
+                                        </select>
+
                                         <button type="button" onClick={() => setFormData({ ...formData, items: formData.items.filter((_, idx) => idx !== i) })} className="p-3 text-muted-foreground hover:text-red-500"><Trash2 size={18} /></button>
                                     </div>
                                 ))}

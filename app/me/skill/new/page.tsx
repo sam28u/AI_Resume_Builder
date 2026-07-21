@@ -44,7 +44,7 @@ export default function NewSkillPage() {
                 <Link href="/me" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground mb-8">
                     <ArrowLeft size={16} /> Back to Profile
                 </Link>
-                <h1 className="text-4xl font-bold tracking-tight">Add Skills</h1>
+                <h1 className="text-4xl mb-5 font-bold tracking-tight">Add Skills</h1>
                 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-3xl shadow-sm p-6 md:p-10">
                     <form onSubmit={handleSubmit} className="space-y-6">

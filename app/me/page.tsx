@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Loader2, Briefcase, GraduationCap, Code, Lightbulb, Globe, Calendar, Plus, Pencil, Mail, ExternalLink, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image"; // Added Image import
+import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 
 // Import all API functions and types
@@ -102,13 +102,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex gap-2">
-                    {/* Updated GitHub Icon */}
                     {profile?.githubUrl && (
                       <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-muted rounded-full hover:bg-primary/10 transition-colors flex items-center justify-center">
                         <Image src="/github.svg" alt="GitHub" width={20} height={20} className="opacity-70 dark:invert" />
                       </a>
                     )}
-                    {/* Updated LinkedIn Icon */}
                     {profile?.linkedinUrl && (
                       <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-muted rounded-full hover:bg-primary/10 transition-colors flex items-center justify-center">
                         <Image src="/linkedin.svg" alt="LinkedIn" width={20} height={20} className="opacity-70 dark:invert" />
@@ -198,13 +196,11 @@ export default function ProfilePage() {
                         <div className="flex justify-between items-start mb-3 pr-24">
                           <h4 className="font-bold">{proj.name}</h4>
                           <div className="absolute right-4 top-4 flex gap-2">
-                            {/* GitHub Icon */}
                             {proj.githubLink && (
                               <a href={proj.githubLink} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity flex items-center justify-center p-1">
                                 <Image src="/github.svg" alt="GitHub" width={18} height={18} className="opacity-70 dark:invert" />
                               </a>
                             )}
-                            {/* NEW: Live URL Icon */}
                             {proj.link && (
                               <a href={proj.link} target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity flex items-center justify-center p-1 text-muted-foreground hover:text-primary">
                                 <ExternalLink size={18} />
@@ -236,7 +232,7 @@ export default function ProfilePage() {
                     >
                       <Pencil size={18} />
                     </button>
-                    <button onClick={() => router.push("/me/skills/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20">
+                    <button onClick={() => router.push("/me/skill/new")} className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20">
                       <Plus size={20} />
                     </button>
                   </div>
@@ -250,10 +246,9 @@ export default function ProfilePage() {
                       <div key={group.id} className="group relative">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-widest">{group.category}</h4>
-                          {/* Redirect to Edit Page when category pencil is clicked */}
                           {isEditingSkills && (
                             <button
-                              onClick={() => router.push(`/me/skills/${group.id}`)}
+                              onClick={() => router.push(`/me/skill/${group.id}`)}
                               className="p-1.5 text-primary hover:bg-primary/10 rounded-lg"
                             >
                               <Pencil size={16} />
@@ -261,17 +256,39 @@ export default function ProfilePage() {
                           )}
                         </div>
 
-                        <div className="flex flex-wrap gap-2.5">
+                        <div className="flex flex-wrap gap-3">
                           {group.items.map((item, i) => (
-                            <div key={i} className="relative flex items-center">
-                              <span className="px-3.5 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-semibold pr-8">
-                                {item.name}
+                            <div key={i} className="relative inline-flex items-center">
+                              {/* Standard uniform style for all skills */}
+                              <span className="px-3.5 py-1.5 bg-muted/50 border border-border text-foreground rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+                                <span>{item.name}</span>
+                                {item.proficiency && (
+                                  <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-bold">
+                                    ({item.proficiency})
+                                  </span>
+                                )}
                               </span>
-                              {/* Delete button appears when editing */}
                               {isEditingSkills && (
                                 <button
-                                  onClick={() => deleteSkillItem(group.id, item.name)}
-                                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                                  onClick={async () => {
+                                    try {
+                                      await deleteSkillItem(group.id, item.name);
+                                      setSkills(prevSkills =>
+                                        prevSkills.map(cat => {
+                                          if (cat.id === group.id) {
+                                            return {
+                                              ...cat,
+                                              items: cat.items.filter(i => i.name !== item.name)
+                                            };
+                                          }
+                                          return cat;
+                                        }).filter(cat => cat.items.length > 0)
+                                      );
+                                    } catch (err) {
+                                      console.error("Failed to delete skill item", err);
+                                    }
+                                  }}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-transform hover:scale-110"
                                 >
                                   <X size={12} />
                                 </button>

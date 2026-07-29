@@ -5,7 +5,7 @@ import { FileText, Plus, Loader2, ExternalLink, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
-import { getResumes, Resume } from "@/lib/api";
+import { getResumes, deleteResume, Resume } from "@/lib/api"; // <-- Added deleteResume
 
 export default function ResumesPage() {
   const router = useRouter();
@@ -27,6 +27,23 @@ export default function ResumesPage() {
     };
     fetchResumes();
   }, []);
+
+  // Updated handleDelete function
+  const handleDelete = async (id: string) => {
+    // Prevent accidental deletions
+    if (!window.confirm("Are you sure you want to delete this resume? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deleteResume(id); // Call the backend API
+      // Instantly remove the deleted resume from the UI state
+      setResumes((prev) => prev.filter((resume) => resume.id !== id));
+    } catch (err) {
+      console.error("Failed to delete resume:", err);
+      alert("Failed to delete resume. Please try again.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted/10 flex flex-col">
@@ -93,7 +110,11 @@ export default function ResumesPage() {
                   >
                     <ExternalLink size={16} /> View Details
                   </button>
-                  <button className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors border border-transparent hover:border-red-500/20">
+                  {/* Hooked up onClick handler here */}
+                  <button 
+                    onClick={() => handleDelete(resume.id)}
+                    className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors border border-transparent hover:border-red-500/20"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>

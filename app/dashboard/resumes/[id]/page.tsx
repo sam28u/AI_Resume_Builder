@@ -17,36 +17,42 @@ export default function ResumeDetailPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Note: Kept your dummy data test structure here so it still functions for you
     const fetchResume = async () => {
       try {
         setIsLoading(true);
-        const dummyResume: Resume = {
-          id: resumeId || "test-123",
-          userId: "user-456",
-          jobDescription: "Senior Frontend Engineer\n\nRequirements:\n- 5+ years of experience with React and Next.js\n- Strong proficiency in TypeScript and Tailwind CSS",
-          generatedContent: { professionalSummary: "Results-driven Senior Frontend Engineer...", relevantSkills: ["React", "Next.js"] },
-          createdAt: new Date().toISOString()
-        };
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setResume(dummyResume);
+        
+        // Fetch all resumes and find the one matching the current ID
+        const allResumes = await getResumes();
+        const currentResume = allResumes.find((r) => r.id === resumeId);
+        
+        if (currentResume) {
+          setResume(currentResume);
+        } else {
+          setError("Resume not found.");
+        }
       } catch (err) {
+        console.error("Failed to fetch resume:", err);
         setError("Failed to load resume details.");
       } finally {
         setIsLoading(false);
       }
     };
-    if (resumeId) fetchResume();
+
+    if (resumeId) {
+      fetchResume();
+    }
   }, [resumeId]);
 
   const handleDownload = async () => {
-    if (!resume?.jobDescription) return;
+    if (!resume) return;
+    
     setIsDownloading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert("Test Mode: Download triggered successfully!");
+      // Call the actual API function to download the PDF
+      await generateAndDownloadResume(resumeId);
     } catch (err) {
-      alert("Failed to download PDF.");
+      console.error("Download failed:", err);
+      alert("Failed to download PDF. Please try again.");
     } finally {
       setIsDownloading(false);
     }

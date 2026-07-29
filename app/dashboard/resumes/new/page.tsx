@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
-import { createResume } from "@/lib/api";
+
+// Only import createResume from your API file
+import { createResume } from "@/lib/api"; 
 
 export default function NewResumePage() {
   const router = useRouter();
@@ -24,8 +26,8 @@ export default function NewResumePage() {
     try {
       const newResume = await createResume({
         jobDescription: jobDescription,
-        generatedContent: { status: "processing" } 
       });
+      // Redirect to the detail page of the newly generated resume
       router.push(`/dashboard/resumes/${newResume.id}`);
     } catch (err) {
       setError("Failed to generate your resume. Please try again.");

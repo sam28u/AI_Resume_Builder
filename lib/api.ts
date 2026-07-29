@@ -233,12 +233,12 @@ export const getResumes = () => apiRequest<Resume[]>("/api/resumes");
 
 export const createResume = (data: {
   jobDescription: string;
-  generatedContent: any;
 }) =>
   apiRequest<Resume>("/api/resumes", {
     method: "POST",
     body: JSON.stringify(data),
   });
+
 
 export const getUserEmail = () => {
   if (typeof window === "undefined") return null;
@@ -252,65 +252,6 @@ export const getUserEmail = () => {
     }
   }
   return null;
-};
-
-export const generateAndDownloadResume = async (
-  jobDescription: string,
-  filename: string = "tailored-resume.pdf",
-): Promise<void> => {
-  const token = getAccessToken();
-
-  const res = await fetch("/api/generate-resume", {
-    // Adjust the URL if your API route is different
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ jobDescription }),
-  });
-
-  if (res.status === 401) {
-    // Attempt token refresh logic as defined in your fetchWithAuth helper
-    const refreshRes = await fetch("/api/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-    });
-
-    if (refreshRes.ok) {
-      const refreshData = await refreshRes.json();
-      setAccessToken(refreshData.accessToken);
-
-      // Retry the request with the new token
-      const retryRes = await fetch("/api/generate-resume", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${refreshData.accessToken}`,
-        },
-        body: JSON.stringify({ jobDescription }),
-      });
-
-      if (!retryRes.ok) {
-        throw new Error("Failed to generate resume after token refresh");
-      }
-
-      return handlePdfDownload(retryRes, filename);
-    } else {
-      clearTokens();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      throw new Error("Authentication failed");
-    }
-  }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || "Failed to generate resume");
-  }
-
-  return handlePdfDownload(res, filename);
 };
 
 // Helper function to handle the Blob conversion and download trigger
@@ -376,3 +317,43 @@ export const createProject = (data: Omit<Project, "id" | "userId">) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+
+  
+export const deleteResume = (id: string) =>
+  apiRequest<{ message: string }>(`/api/resumes?id=${id}`, {
+    method: "DELETE",
+  });
+
+export const generateAndDownloadResume = async (resumeId: string) => {
+  try {
+    // We use your existing fetchWithAuth helper instead of a raw fetch!
+    // This automatically attaches the "accessToken" and handles token refresh logic.
+    const response = await fetchWithAuth(`/api/resumes/${resumeId}/pdf`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Authentication failed. Please log in again.");
+      }
+      throw new Error("Failed to generate PDF");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Tailored_Resume_${resumeId}.pdf`);
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+  } catch (error) {
+    console.error("Error downloading PDF:", error);
+    alert(error instanceof Error ? error.message : "Failed to download PDF");
+  }
+};

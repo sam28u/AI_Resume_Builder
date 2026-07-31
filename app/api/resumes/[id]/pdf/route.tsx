@@ -1,203 +1,210 @@
-"use client";
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { resumes } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+import { authenticate } from "@/lib/auth/authenticate";
+import { renderToStream } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Download, Loader2, FileText } from "lucide-react";
-import { motion } from "framer-motion";
-import { Navbar } from "@/components/Navbar";
-import { 
-  getResumes, 
-  getProfile, 
-  generateAndDownloadResume, 
-  Resume, 
-  Profile 
-} from "@/lib/api";
-
-export default function ResumePreviewPage() {
-  const { id } = useParams();
-  const router = useRouter();
-  
-  const [resume, setResume] = useState<Resume | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch all resumes and find the one matching this URL ID
-        // (In a massive app you'd want a specific GET /api/resumes/[id] route, 
-        // but this works perfectly for now)
-        const [resumesData, profileData] = await Promise.all([
-          getResumes(),
-          getProfile()
-        ]);
-
-        const foundResume = resumesData.find((r) => r.id === id);
-        
-        if (!foundResume) {
-          setError("Resume not found.");
-        } else {
-          setResume(foundResume);
-          setProfile(profileData);
-        }
-      } catch (err) {
-        setError("Failed to load resume details.");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id]);
-
-  const handleDownload = async () => {
-    if (!id) return;
-    setIsDownloading(true);
-    try {
-      await generateAndDownloadResume(id as string);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-muted/10 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-          <Loader2 className="animate-spin mb-4" size={32} />
-          <p>Loading your tailored resume...</p>
-        </div>
-      </div>
-    );
+// 1. ATS-Optimized Styles (Mimicking the classic Harvard/ATS layout)
+const resumeStyles = StyleSheet.create({
+  page: { 
+    padding: "36pt 48pt", // 0.5" top/bottom, ~0.65" left/right margins
+    fontFamily: "Helvetica", 
+    fontSize: 10, 
+    color: "#000000" 
+  },
+  header: { 
+    textAlign: "center", 
+    marginBottom: 12 
+  },
+  name: { 
+    fontSize: 22, 
+    fontWeight: "bold", 
+    textTransform: "uppercase", 
+    marginBottom: 4,
+    letterSpacing: 1
+  },
+  contactInfo: { 
+    fontSize: 9, 
+    color: "#333333" 
+  },
+  section: { 
+    marginBottom: 12 
+  },
+  sectionTitle: { 
+    fontSize: 11, 
+    fontWeight: "bold", 
+    textTransform: "uppercase", 
+    borderBottom: "1pt solid #000000", 
+    paddingBottom: 2, 
+    marginBottom: 6 
+  },
+  // Experience Block Styles
+  expHeader: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "flex-end",
+    marginBottom: 2 
+  },
+  jobTitle: { 
+    fontSize: 10, 
+    fontWeight: "bold" 
+  },
+  date: { 
+    fontSize: 9,
+    fontWeight: "bold" 
+  },
+  company: { 
+    fontSize: 10, 
+    fontStyle: "italic", 
+    marginBottom: 4 
+  },
+  // Bullet Point Styles
+  bulletRow: { 
+    flexDirection: "row", 
+    marginBottom: 3, 
+    paddingLeft: 8,
+    paddingRight: 8
+  },
+  bullet: { 
+    width: 12, 
+    fontSize: 10 
+  },
+  bulletText: { 
+    flex: 1, 
+    fontSize: 9.5, 
+    lineHeight: 1.4 
+  },
+  // General Text
+  paragraph: { 
+    fontSize: 9.5, 
+    lineHeight: 1.4,
+    marginBottom: 4
   }
+});
 
-  if (error || !resume) {
-    return (
-      <div className="min-h-screen bg-muted/10 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <button onClick={() => router.push("/dashboard/resumes")} className="text-primary hover:underline">
-            Go back to resumes
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // The AI generated JSON payload we saved in the DB
-  const content = resume.generatedContent;
-
-  return (
-    <div className="min-h-screen bg-muted/10 flex flex-col">
-      <Navbar />
+// 2. The PDF Template Component
+const ResumePDF = ({ content, profile }: { content: any; profile: any }) => (
+  <Document>
+    <Page size="A4" style={resumeStyles.page}>
       
-      <main className="flex-1 p-6 md:p-8 max-w-5xl mx-auto w-full">
-        {/* Header Controls */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <button 
-            onClick={() => router.push("/dashboard/resumes")}
-            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={16} /> Back to Resumes
-          </button>
+      {/* HEADER SECTION */}
+      <View style={resumeStyles.header}>
+        <Text style={resumeStyles.name}>
+          {profile?.firstName || "First"} {profile?.lastName || "Last"}
+        </Text>
+        <Text style={resumeStyles.contactInfo}>
+          {profile?.email || "email@example.com"} 
+          {profile?.linkedinUrl ? ` | ${profile.linkedinUrl.replace("https://", "").replace("www.", "")}` : ""}
+          {profile?.githubUrl ? ` | ${profile.githubUrl.replace("https://", "").replace("www.", "")}` : ""}
+        </Text>
+      </View>
+
+      {/* PROFESSIONAL SUMMARY */}
+      {content?.professionalSummary && (
+        <View style={resumeStyles.section}>
+          <Text style={resumeStyles.sectionTitle}>Professional Summary</Text>
+          <Text style={resumeStyles.paragraph}>{content.professionalSummary}</Text>
+        </View>
+      )}
+
+      {/* WORK EXPERIENCE */}
+      {content?.tailoredExperiences && content.tailoredExperiences.length > 0 && (
+        <View style={resumeStyles.section}>
+          <Text style={resumeStyles.sectionTitle}>Experience</Text>
           
-          <button 
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {isDownloading ? (
-              <><Loader2 size={18} className="animate-spin" /> Compiling PDF...</>
-            ) : (
-              <><Download size={18} /> Download ATS PDF</>
-            )}
-          </button>
-        </div>
+          {content.tailoredExperiences.map((exp: any, index: number) => (
+            <View key={index} style={{ marginBottom: 8 }}>
+              {/* Job Title and Date on the same line */}
+              <View style={resumeStyles.expHeader}>
+                <Text style={resumeStyles.jobTitle}>{exp.title}</Text>
+                <Text style={resumeStyles.date}>{exp.startDate ? `${exp.startDate} - ${exp.endDate || "Present"}` : ""}</Text>
+              </View>
+              {/* Company Name below */}
+              <Text style={resumeStyles.company}>{exp.company}</Text>
+              
+              {/* Bullets */}
+              {exp.optimizedBullets && exp.optimizedBullets.map((bullet: string, bIndex: number) => (
+                <View key={bIndex} style={resumeStyles.bulletRow}>
+                  <Text style={resumeStyles.bullet}>•</Text>
+                  <Text style={resumeStyles.bulletText}>{bullet}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
 
-        {/* ATS Resume Preview Paper */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white text-black shadow-xl rounded-sm max-w-4xl mx-auto overflow-hidden border border-gray-200 min-h-[1056px] p-10 md:p-16"
-          style={{ fontFamily: "'Times New Roman', Times, serif" }}
-        >
-          {/* Resume Header */}
-          <div className="text-center mb-8 border-b border-gray-400 pb-6">
-            <h1 className="text-4xl font-bold uppercase tracking-wide mb-2">
-              {profile?.firstName} {profile?.lastName}
-            </h1>
-            <div className="flex flex-wrap justify-center items-center gap-x-4 text-sm text-gray-700">
-              {/* Fallbacks if profile doesn't have these fields */}
-              <span>{profile?.linkedinUrl ? profile.linkedinUrl.replace("https://", "") : "linkedin.com/in/username"}</span>
-              <span>•</span>
-              <span>{profile?.githubUrl ? profile.githubUrl.replace("https://", "") : "github.com/username"}</span>
-              {profile?.portfolioUrl && (
-                <>
-                  <span>•</span>
-                  <span>{profile.portfolioUrl.replace("https://", "")}</span>
-                </>
-              )}
-            </div>
-          </div>
+      {/* TECHNICAL SKILLS */}
+      {content?.relevantSkills && content.relevantSkills.length > 0 && (
+        <View style={resumeStyles.section}>
+          <Text style={resumeStyles.sectionTitle}>Skills</Text>
+          <Text style={resumeStyles.paragraph}>
+            {content.relevantSkills.join(", ")}
+          </Text>
+        </View>
+      )}
 
-          {/* Professional Summary */}
-          {content?.professionalSummary && (
-            <div className="mb-6">
-              <h2 className="text-lg font-bold uppercase border-b border-gray-300 mb-3 pb-1">
-                Professional Summary
-              </h2>
-              <p className="text-sm leading-relaxed text-gray-800">
-                {content.professionalSummary}
-              </p>
-            </div>
-          )}
+    </Page>
+  </Document>
+);
 
-          {/* Technical Skills */}
-          {content?.relevantSkills && content.relevantSkills.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-lg font-bold uppercase border-b border-gray-300 mb-3 pb-1">
-                Technical Skills
-              </h2>
-              <p className="text-sm leading-relaxed text-gray-800">
-                {content.relevantSkills.join(" • ")}
-              </p>
-            </div>
-          )}
+// 3. The API Handler
+export async function GET(req: Request, context: any) {
+  try {
+    const user = await authenticate(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-          {/* Professional Experience */}
-          {content?.tailoredExperiences && content.tailoredExperiences.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-lg font-bold uppercase border-b border-gray-300 mb-3 pb-1">
-                Professional Experience
-              </h2>
-              <div className="space-y-5">
-                {content.tailoredExperiences.map((exp: any, index: number) => (
-                  <div key={index}>
-                    <div className="flex justify-between items-baseline mb-2">
-                      <h3 className="font-bold text-base">{exp.title}</h3>
-                      <span className="font-bold text-sm text-gray-700">{exp.company}</span>
-                    </div>
-                    {exp.optimizedBullets && exp.optimizedBullets.length > 0 && (
-                      <ul className="list-disc list-outside ml-5 space-y-1.5 text-sm text-gray-800">
-                        {exp.optimizedBullets.map((bullet: string, bIndex: number) => (
-                          <li key={bIndex} className="pl-1 leading-snug">{bullet}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </main>
-    </div>
-  );
+    const params = await context.params;
+    const resumeId = params.id;
+
+    // Fetch the specific resume
+    const [resume] = await db
+      .select()
+      .from(resumes)
+      .where(
+        and(
+          eq(resumes.id, resumeId),
+          eq(resumes.userId, user.userId as string)
+        )
+      );
+
+    if (!resume) {
+      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
+    }
+
+    // Fetch the user's profile data to populate the header
+    const rawUserData = await db.query.users.findFirst({
+      where: (users: any, { eq }: any) => eq(users.id, user.userId as string),
+      with: { profile: true },
+    });
+
+    // Generate the PDF stream, passing both the AI content and the user profile
+    const pdfStream = await renderToStream(
+      <ResumePDF 
+        content={resume.generatedContent} 
+        profile={rawUserData?.profile} 
+      />
+    );
+    
+    // Convert Stream to Buffer
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of pdfStream) {
+      chunks.push(chunk as Uint8Array);
+    }
+    const pdfBuffer = Buffer.concat(chunks);
+
+    return new NextResponse(pdfBuffer, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="resume-${resumeId}.pdf"`,
+        "Content-Length": pdfBuffer.length.toString(),
+      },
+    });
+
+  } catch (error: any) {
+    console.error("🔥 PDF Generation Error:", error);
+    return NextResponse.json({ error: "Failed to generate PDF", details: error.message }, { status: 500 });
+  }
 }

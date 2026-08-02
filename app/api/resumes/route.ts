@@ -9,19 +9,20 @@ import { createGroq } from "@ai-sdk/groq";
 export async function GET(req: Request) {
   try {
     const payload = await authenticate(req);
-    if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!payload)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const userResumes = await db
       .select()
       .from(resumes)
       .where(eq(resumes.userId, payload.userId as string));
-      
+
     return NextResponse.json(userResumes);
   } catch (error: any) {
     console.error("GET Resumes Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error", details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -29,13 +30,17 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const user = await authenticate(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const resumeId = searchParams.get("id");
 
     if (!resumeId) {
-      return NextResponse.json({ error: "Resume ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Resume ID is required" },
+        { status: 400 },
+      );
     }
 
     const deletedResume = await db
@@ -43,8 +48,8 @@ export async function DELETE(req: Request) {
       .where(
         and(
           eq(resumes.id, resumeId),
-          eq(resumes.userId, user.userId as string)
-        )
+          eq(resumes.userId, user.userId as string),
+        ),
       )
       .returning();
 
@@ -52,23 +57,33 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ message: "Resume deleted successfully" }, { status: 200 });
+    return NextResponse.json(
+      { message: "Resume deleted successfully" },
+      { status: 200 },
+    );
   } catch (error: any) {
     console.error("Database error:", error);
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(req: Request) {
   try {
     const user = await authenticate(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
     const { jobDescription } = body;
 
     if (!jobDescription) {
-      return NextResponse.json({ error: "Job description is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Job description is required" },
+        { status: 400 },
+      );
     }
 
     // 1. Fetch User Data
@@ -83,7 +98,11 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!rawUserData) return NextResponse.json({ error: "User data not found" }, { status: 404 });
+    if (!rawUserData)
+      return NextResponse.json(
+        { error: "User data not found" },
+        { status: 404 },
+      );
 
     // 2. Format Database Data for the LLM
     let optimizedDataString = `USER PROFILE:\n`;
@@ -103,7 +122,8 @@ export async function POST(req: Request) {
       rawUserData.experiences.forEach((exp: any) => {
         optimizedDataString += `- Role: ${exp.title} at ${exp.company}\n`;
         optimizedDataString += `  Duration: ${exp.startDate || "Unknown"} to ${exp.endDate || "Present"}\n`;
-        if (exp.description) optimizedDataString += `  Details: ${exp.description}\n`;
+        if (exp.description)
+          optimizedDataString += `  Details: ${exp.description}\n`;
       });
       optimizedDataString += `\n`;
     }
@@ -112,14 +132,17 @@ export async function POST(req: Request) {
       optimizedDataString += `EDUCATION:\n`;
       rawUserData.educations.forEach((edu: any) => {
         optimizedDataString += `- Degree: ${edu.degree} at ${edu.institution || edu.school}\n`;
-        if (edu.fieldOfStudy) optimizedDataString += `  Field of Study: ${edu.fieldOfStudy}\n`;
+        if (edu.fieldOfStudy)
+          optimizedDataString += `  Field of Study: ${edu.fieldOfStudy}\n`;
         optimizedDataString += `  Duration: ${edu.startDate || "Unknown"} to ${edu.endDate || "Present"}\n`;
       });
       optimizedDataString += `\n`;
     }
 
     if (rawUserData.skills && rawUserData.skills.length > 0) {
-      const skillNames = rawUserData.skills.map((skill: any) => skill.category || skill.name || skill).join(", ");
+      const skillNames = rawUserData.skills
+        .map((skill: any) => skill.category || skill.name || skill)
+        .join(", ");
       optimizedDataString += `SKILLS:\n${skillNames}\n`;
     }
 
@@ -127,18 +150,55 @@ export async function POST(req: Request) {
     const safeJobDescription = jobDescription.substring(0, 3000);
     const userPrompt = `${optimizedDataString}\n\nJOB DESCRIPTION:\n${safeJobDescription}`;
 
-    const systemPrompt = `You are an expert ATS resume writer. Tailor the user's experience to the Job Description. 
+    const systemPrompt = `You are an expert ATS resume writer. Tailor the user's experience, projects, and education to the Job Description. 
+
+CRITICAL INSTRUCTION 1: You MUST quantify achievements. Inject realistic but accurate statistics, percentages, and performance metrics into the bullet points for both Experience and Projects to demonstrate impact.
+CRITICAL INSTRUCTION 2: You MUST use double asterisks to bold key metrics, action verbs, and technologies (e.g., "Reduced latency by **30%** using **PostgreSQL**").
+
 You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap it in markdown blocks or add any conversational text:
 {
-  "professionalSummary": "A strong, ATS-friendly summary paragraph.",
+  "professionalSummary": "A strong, ATS-friendly summary paragraph. Bold key terms.",
+  "education": [
+    {
+      "institution": "University or School Name",
+      "degree": "Degree and Major",
+      "date": "Month Year - Month Year",
+      "details": "Optional: GPA, relevant coursework, or honors (keep it to one brief sentence, or leave empty)"
+    }
+  ],
   "tailoredExperiences": [
     {
       "company": "Company Name",
       "title": "Job Title",
-      "optimizedBullets": ["Action-oriented bullet 1", "Action-oriented bullet 2"]
+      "startDate": "Month Year",
+      "endDate": "Month Year",
+      "optimizedBullets": [
+        "Action-oriented bullet with quantifiable metrics", 
+        "Action-oriented bullet 2"
+      ]
     }
   ],
-  "relevantSkills": ["Skill 1", "Skill 2"]
+  "projects": [
+    {
+      "name": "Project Name",
+      "technologies": "Tech Stack used",
+      "date": "Month Year",
+      "optimizedBullets": [
+        "Action-oriented bullet highlighting technical challenge and statistical impact", 
+        "Action-oriented bullet containing user-centric metrics"
+      ]
+    }
+  ],
+  "relevantSkills": [
+    {
+      "category": "Languages",
+      "skills": ["JavaScript", "Python"]
+    },
+    {
+      "category": "Frameworks",
+      "skills": ["Next.js", "React"]
+    }
+  ]
 }`;
 
     const groq = createGroq({ apiKey: process.env.GROQ_API_KEY! });
@@ -149,7 +209,10 @@ You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap 
     });
 
     // 4. Parse LLM JSON Output
-    const rawJsonString = response.text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const rawJsonString = response.text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
     const parsedResume = JSON.parse(rawJsonString);
 
     // 5. Save generated AI output to Database
@@ -165,6 +228,9 @@ You MUST return ONLY raw, valid JSON matching this exact structure. Do not wrap 
     return NextResponse.json(newResume, { status: 201 });
   } catch (error: any) {
     console.error("AI Generation & DB save error:", error);
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 },
+    );
   }
 }
